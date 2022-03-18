@@ -1,0 +1,12 @@
+[package]
+name = "ingest"
+version = "0.1.0"
+edition = "2021"
+
+# See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
+
+[dependencies]
+amf = { git = "https://github.com/LMinJae/amf-rs", default-features = false, features = ["amf0-number", "amf0-boolean", "amf0-string", "amf0-object", "amf0-ecma_array", "amf0-strict_array"]}
+rtmp = { git = "https://github.com/LMinJae/rtmp-rs" }
+bytes = "1.1.0"
+byteorder = "1"
