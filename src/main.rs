@@ -539,98 +539,94 @@ impl Connection {
                                     (0xFF, 0)
                                 };
 
-                                if 5 == frame {
-                                    eprintln!("{:?}", payload.get_u8());
-                                } else {
-                                    match codec {
-                                        7 => match avc_packet_type {
-                                            0 => { // AVC sequence header
-                                                eprintln!("[AVC] avcC: AVCDecoderConfigurationRecord");
-                                                {
-                                                    eprintln!("{:02?}", payload.chunk());
-                                                }
+                                match codec {
+                                    7 => match avc_packet_type {
+                                        0 => { // AVC sequence header
+                                            eprintln!("[AVC] avcC: AVCDecoderConfigurationRecord");
+                                            {
+                                                eprintln!("{:02?}", payload.chunk());
+                                            }
 
-                                                let width = (self.moov.traks[0].tkhd.width >> 16) as u16;
-                                                let height = (self.moov.traks[0].tkhd.height >> 16) as u16;
-                                                self.moov.traks[0].mdia.minf.stbl.stsd.entries.push(
-                                                    isobmff::moov::SampleEntry::avc1 {
-                                                        base: Box::new(isobmff::moov::SampleEntry::Visual {
-                                                            base: Box::new(isobmff::moov::SampleEntry::Base {
-                                                                handler_type: 0x61766331,
-                                                                data_reference_index: 1,
-                                                            }),
-
-                                                            width,
-                                                            height,
-                                                            horiz_resolution: 0x00480000,
-                                                            vert_resolution: 0x00480000,
-                                                            frame_count: 1,
-                                                            compressor_name: "".to_owned(),
-                                                            depth: 24,
+                                            let width = (self.moov.traks[0].tkhd.width >> 16) as u16;
+                                            let height = (self.moov.traks[0].tkhd.height >> 16) as u16;
+                                            self.moov.traks[0].mdia.minf.stbl.stsd.entries.push(
+                                                isobmff::moov::SampleEntry::avc1 {
+                                                    base: Box::new(isobmff::moov::SampleEntry::Visual {
+                                                        base: Box::new(isobmff::moov::SampleEntry::Base {
+                                                            handler_type: 0x61766331,
+                                                            data_reference_index: 1,
                                                         }),
-                                                        ext: {
-                                                            let mut v = isobmff::Object {
-                                                                box_type: 0x61766343,
-                                                                payload: {
-                                                                    let mut v = payload.clone();
 
-                                                                    let _ = v.split_to(3);
+                                                        width,
+                                                        height,
+                                                        horiz_resolution: 0x00480000,
+                                                        vert_resolution: 0x00480000,
+                                                        frame_count: 1,
+                                                        compressor_name: "".to_owned(),
+                                                        depth: 24,
+                                                    }),
+                                                    ext: {
+                                                        let mut v = isobmff::Object {
+                                                            box_type: 0x61766343,
+                                                            payload: {
+                                                                let mut v = payload.clone();
 
-                                                                    v
-                                                                },
-                                                            }.as_bytes();
+                                                                let _ = v.split_to(3);
 
-                                                            v.put(isobmff::Object {
-                                                                box_type: 0x636F6C72,
-                                                                payload: {
-                                                                    let mut colr = BytesMut::with_capacity(11);
+                                                                v
+                                                            },
+                                                        }.as_bytes();
 
-                                                                    colr.put_u32(0x6e636c78);
-                                                                    colr.put_u16(6);
-                                                                    colr.put_u16(1);
-                                                                    colr.put_u16(6);
-                                                                    colr.put_u8(0);
+                                                        v.put(isobmff::Object {
+                                                            box_type: 0x636F6C72,
+                                                            payload: {
+                                                                let mut colr = BytesMut::with_capacity(11);
 
-                                                                    colr
-                                                                },
-                                                            }.as_bytes());
+                                                                colr.put_u32(0x6e636c78);
+                                                                colr.put_u16(6);
+                                                                colr.put_u16(1);
+                                                                colr.put_u16(6);
+                                                                colr.put_u8(0);
 
-                                                            v
-                                                        }
+                                                                colr
+                                                            },
+                                                        }.as_bytes());
+
+                                                        v
                                                     }
-                                                );
+                                                }
+                                            );
 
-                                                let _ = payload.split_to(9);
-                                                // sps
-                                                {
-                                                    let len = payload.get_u16();
-                                                    self.f_v.write_u32::<BigEndian>(1).unwrap();
-                                                    self.f_v.write_all(payload.split_to(len as usize).chunk()).unwrap();
-                                                }
-                                                let _ = payload.split_to(1);
-                                                // pps
-                                                {
-                                                    let len = payload.get_u16();
-                                                    self.f_v.write_u32::<BigEndian>(1).unwrap();
-                                                    self.f_v.write_all(payload.split_to(len as usize).chunk()).unwrap();
-                                                }
+                                            let _ = payload.split_to(9);
+                                            // sps
+                                            {
+                                                let len = payload.get_u16();
+                                                self.f_v.write_u32::<BigEndian>(1).unwrap();
+                                                self.f_v.write_all(payload.split_to(len as usize).chunk()).unwrap();
                                             }
-                                            1 => { // AVC NALU
-                                                while 0 < payload.len() {
-                                                    let len = payload.get_u32();
-                                                    self.f_v.write_u32::<BigEndian>(1).unwrap();
-                                                    self.f_v.write_all(payload.split_to(len as usize).chunk()).unwrap();
-                                                }
+                                            let _ = payload.split_to(1);
+                                            // pps
+                                            {
+                                                let len = payload.get_u16();
+                                                self.f_v.write_u32::<BigEndian>(1).unwrap();
+                                                self.f_v.write_all(payload.split_to(len as usize).chunk()).unwrap();
                                             }
-                                            2 => { // AVC end of sequence
-                                                // Empty
-                                            }
-                                            _ => { unreachable!() }
                                         }
-                                        _ => {
-                                            eprintln!("Video codec [{:?}] is not supported", codec);
-                                            eprintln!("{:02x?}", payload.chunk());
+                                        1 => { // AVC NALU
+                                            while 0 < payload.len() {
+                                                let len = payload.get_u32();
+                                                self.f_v.write_u32::<BigEndian>(1).unwrap();
+                                                self.f_v.write_all(payload.split_to(len as usize).chunk()).unwrap();
+                                            }
                                         }
+                                        2 => { // AVC end of sequence
+                                            // Empty
+                                        }
+                                        _ => unreachable!()
+                                    }
+                                    _ => {
+                                        eprintln!("Video codec [{:?}] is not supported", codec);
+                                        eprintln!("{:02x?}", payload.chunk());
                                     }
                                 }
                             }
