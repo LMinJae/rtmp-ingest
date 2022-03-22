@@ -374,71 +374,16 @@ impl Connection {
                                                                 _ => unreachable!(),
                                                             } << 15,
                                                         }),
-                                                        ext: {
-                                                            let mut v = isobmff::Object {
-                                                                box_type: isobmff::types::types::esds,
-                                                                payload: {
-                                                                    let mut v = isobmff::FullBox::new(0, 0).as_bytes();
+                                                        ext: isobmff::Object {
+                                                            box_type: isobmff::types::types::esds,
+                                                            payload: {
+                                                                let mut v = isobmff::FullBox::new(0, 0).as_bytes();
 
-                                                                    v.put_u8(0x03);
-                                                                    v.put_u8(0x80);
-                                                                    v.put_u8(0x80);
-                                                                    v.put_u8(0x80);
-                                                                    v.put_u8(0x25);
-                                                                    v.put_u8(0x00);
-                                                                    v.put_u8(0x02);
-                                                                    v.put_u8(0x00);
-                                                                    v.put_u8(0x04);
-                                                                    v.put_u8(0x80);
-                                                                    v.put_u8(0x80);
-                                                                    v.put_u8(0x80);
-                                                                    v.put_u8(0x17);
+                                                                v.put(payload.chunk());
 
-                                                                    v.put_u8(0x40);
-                                                                    v.put_u8(0x15);
-                                                                    v.put_u8(0x00); v.put_u8(0x00); v.put_u8(0x00);
-                                                                    v.put_u32(0x0001f400);
-                                                                    v.put_u32(0x0001f400);
-
-                                                                    v.put_u8(0x05);
-                                                                    v.put_u8(0x80);
-                                                                    v.put_u8(0x80);
-                                                                    v.put_u8(0x80);
-                                                                    v.put_u8(0x05);
-
-                                                                    v.put_u8(0x13);
-                                                                    v.put_u8(0x90);
-                                                                    v.put_u8(0x56);
-                                                                    v.put_u8(0xe5);
-                                                                    v.put_u8(0x00);
-
-                                                                    v.put_u8(0x06);
-                                                                    v.put_u8(0x80);
-                                                                    v.put_u8(0x80);
-                                                                    v.put_u8(0x80);
-                                                                    v.put_u8(0x01);
-
-                                                                    v.put_u8(0x02);
-
-                                                                    v
-                                                                }
-                                                            }.as_bytes();
-
-                                                            v.put(isobmff::Object {
-                                                                box_type: isobmff::types::types::btrt,
-                                                                payload: {
-                                                                    let mut v = BytesMut::with_capacity(12);
-
-                                                                    v.put_u32(0);
-                                                                    v.put_u32(128000);
-                                                                    v.put_u32(128000);
-
-                                                                    v
-                                                                }
-                                                            }.as_bytes());
-
-                                                            v
-                                                        },
+                                                                v
+                                                            }
+                                                        }.as_bytes(),
                                                     }
                                                 );
                                             }
