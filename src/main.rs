@@ -898,6 +898,7 @@ impl Connection {
         if let amf::Value::Amf0Value(amf::amf0::Value::Number(stream_id)) = &packet[3] {
             eprintln!("{:?}({:?})", "deleteStream", stream_id);
         }
+        write!(self.f_playlist, "#EXT-X-ENDLIST\n").unwrap();
     }
 }
 
