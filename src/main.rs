@@ -98,6 +98,8 @@ struct Connection {
     f_v: File,
     f_a: File,
 
+    f_playlist: File,
+
     moov: isobmff::moov::moov,
 }
 
@@ -113,6 +115,8 @@ impl Connection {
 
             f_v: File::create("./dump.h264").unwrap(),
             f_a: File::create("./dump.aac").unwrap(),
+
+            f_playlist: File::create("./prog_index.m3u8").unwrap(),
 
             moov: isobmff::moov::moov::default(),
         }
@@ -492,6 +496,8 @@ impl Connection {
                                                             v
                                                         },
                                                     }.as_bytes().chunk()).expect("Fail moov");
+
+                                                    write!(self.f_playlist, "#EXTM3U\n#EXT-X-VERSION:7\n#EXT-X-TARGETDURATION:2\n#EXT-X-MEDIA-SEQUENCE:0\n#EXT-X-PLAYLIST-TYPE:EVENT\n#EXT-X-MAP:URI=\"init.mp4\"\n").unwrap();
                                                 }
                                             }
                                             1 => {
@@ -621,6 +627,7 @@ impl Connection {
                                         }
                                         2 => { // AVC end of sequence
                                             // Empty
+                                            write!(self.f_playlist, "#EXT-X-ENDLIST\n").unwrap();
                                         }
                                         _ => unreachable!()
                                     }
