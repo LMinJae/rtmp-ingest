@@ -544,7 +544,7 @@ impl Connection {
                                 } else {
                                     match codec {
                                         7 => match avc_packet_type {
-                                            0 => {
+                                            0 => { // AVC sequence header
                                                 eprintln!("[AVC] avcC: AVCDecoderConfigurationRecord");
                                                 {
                                                     eprintln!("{:02?}", payload.chunk());
@@ -615,15 +615,15 @@ impl Connection {
                                                     self.f_v.write_all(payload.split_to(len as usize).chunk()).unwrap();
                                                 }
                                             }
-                                            1 => {
+                                            1 => { // AVC NALU
                                                 while 0 < payload.len() {
                                                     let len = payload.get_u32();
                                                     self.f_v.write_u32::<BigEndian>(1).unwrap();
                                                     self.f_v.write_all(payload.split_to(len as usize).chunk()).unwrap();
                                                 }
                                             }
-                                            2 => {
-                                                self.f_v.write_all(payload.chunk()).unwrap();
+                                            2 => { // AVC end of sequence
+                                                // Empty
                                             }
                                             _ => { unreachable!() }
                                         }
