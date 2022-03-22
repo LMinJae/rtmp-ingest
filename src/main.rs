@@ -289,19 +289,6 @@ impl Connection {
                                                 (n as u32) << 16
                                             } else { 0 };
 
-                                            trak.edts = Some(
-                                                isobmff::moov::edts {
-                                                    elst: Some({
-                                                        let mut elst = isobmff::moov::elst::default();
-
-                                                        elst.entries.push((66, -1, 1));
-                                                        elst.entries.push((0, 768, 1));
-
-                                                        elst
-                                                    }),
-                                                }
-                                            );
-
                                             trak.mdia.mdhd.timescale = 1000;
 
                                             trak.mdia.hdlr = isobmff::moov::hdlr::vide("VideoHandler");
@@ -316,19 +303,6 @@ impl Connection {
 
                                             trak.tkhd.track_id = 2;
                                             trak.tkhd.alternate_group = 1;
-
-                                            trak.edts = Some(
-                                                isobmff::moov::edts {
-                                                    elst: Some({
-                                                        let mut elst = isobmff::moov::elst::default();
-
-                                                        elst.entries.push((20, -1, 1));
-                                                        elst.entries.push((0, 0, 1));
-
-                                                        elst
-                                                    }),
-                                                }
-                                            );
 
                                             trak.mdia.mdhd.timescale = 22050;
 
