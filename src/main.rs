@@ -568,61 +568,7 @@ impl Connection {
                                                 }
                                             );
 
-                                            {
-                                                let mut f = File::create("init.mp4").unwrap();
-                                                f.write_all(isobmff::Object {
-                                                    box_type: isobmff::ftyp::ftyp::BOX_TYPE,
-                                                    payload: isobmff::ftyp::ftyp {
-                                                        major_brand: 0x69736F35,
-                                                        minor_version: 512,
-                                                        compatible_brands: vec![
-                                                            0x69736F35,
-                                                            0x69736F36,
-                                                            0x6D703431,
-                                                        ],
-                                                    }.as_bytes(),
-                                                }.as_bytes().chunk()).expect("Fail ftyp");
-                                                f.write_all(isobmff::Object {
-                                                    box_type: isobmff::moov::moov::BOX_TYPE,
-                                                    payload: {
-                                                        let mut v = self.moov.as_bytes();
-
-                                                        v.put(isobmff::Object {
-                                                            box_type: 0x75647461,
-                                                            payload: isobmff::Object {
-                                                                box_type: 0x6D657461,
-                                                                payload: {
-                                                                    let mut v = BytesMut::with_capacity(82);
-
-                                                                    v.put(isobmff::FullBox::new(0, 0).as_bytes());
-
-                                                                    v.put_u32(0x00000021); v.put_u32(0x68646c72);
-                                                                    v.put_u64(0x0000000000000000);
-                                                                    v.put_u32(0x6d646972);
-                                                                    v.put_u32(0x6170706c); v.put_u32(0x00000000); v.put_u32(0x00000000); v.put_u8(0x00);
-                                                                    v.put_u32(0x0000002d); v.put_u32(0x696c7374);
-                                                                    v.put_u32(0x00000025);
-                                                                    v.put_u32(0xa9746f6f);
-                                                                    v.put_u32(0x0000001d);
-                                                                    v.put_u32(0x64617461);
-                                                                    v.put_u32(0x00000001);
-                                                                    v.put_u32(0x00000000);
-                                                                    v.put_u32(0x4c617666);
-                                                                    v.put_u32(0x35392e31);
-                                                                    v.put_u32(0x362e3130);
-                                                                    v.put_u8(0x30);
-
-                                                                    v
-                                                                },
-                                                            }.as_bytes(),
-                                                        }.as_bytes());
-
-                                                        v
-                                                    },
-                                                }.as_bytes().chunk()).expect("Fail moov");
-
-                                                write!(self.f_playlist, "#EXTM3U\n#EXT-X-VERSION:7\n#EXT-X-TARGETDURATION:2\n#EXT-X-MEDIA-SEQUENCE:0\n#EXT-X-PLAYLIST-TYPE:EVENT\n#EXT-X-MAP:URI=\"init.mp4\"\n").unwrap();
-                                            }
+                                            self.write_init_seg();
 
                                             let _ = payload.split_to(9);
                                             // sps
@@ -640,81 +586,8 @@ impl Connection {
                                             }
                                         }
                                         1 => { // AVC NALU
-                                            if 1 == frame && 0 < self.trun_v.len() {
-                                                self.sequence_number += 1;
-
-                                                write!(self.f_playlist, "#EXTINF:2.005571,\nseg_{}.m4s\n", self.sequence_number).unwrap();
-
-                                                let mut f = File::create(format!("seg_{}.m4s", self.sequence_number)).unwrap();
-
-                                                f.write_all(isobmff::Object {
-                                                    box_type: isobmff::moof::moof::BOX_TYPE,
-                                                    payload: {
-                                                        let mut moof = isobmff::moof::moof::default();
-
-                                                        moof.mfhd.sequence_number = self.sequence_number;
-
-                                                        moof.trafs.push({
-                                                            let mut traf = isobmff::moof::traf::default();
-
-                                                            traf.tfhd.track_id = 1;
-                                                            traf.tfhd.default_sample_duration = Some(self.moov.traks[0].mdia.mdhd.timescale/self.framerate);
-                                                            traf.tfhd.default_sample_flags = Some(0x1010000);
-
-                                                            traf.truns.push({
-                                                                let mut trun = isobmff::moof::trun::default();
-
-                                                                trun.first_sample_flags = Some(0x2000000);
-                                                                for (size, composition_time_offset) in self.trun_v.drain(..self.trun_v.len()) {
-                                                                    trun.samples.push((None, Some(size), None, Some(self.moov.traks[0].mdia.mdhd.timescale * composition_time_offset / 1000)));
-                                                                }
-
-                                                                trun.data_offset = Some(0);
-
-                                                                trun
-                                                            });
-
-                                                            traf
-                                                        });
-                                                        moof.trafs.push({
-                                                            let mut traf = isobmff::moof::traf::default();
-
-                                                            traf.tfhd.track_id = 2;
-                                                            traf.tfhd.default_sample_duration = Some(1024);
-                                                            traf.tfhd.default_sample_flags = Some(0x2000000);
-
-                                                            traf.truns.push({
-                                                                let mut trun = isobmff::moof::trun::default();
-
-                                                                for size in self.trun_a.drain(..self.trun_a.len()) {
-                                                                    trun.samples.push((None, Some(size), None, None));
-                                                                }
-
-                                                                trun.data_offset = Some(0);
-
-                                                                trun
-                                                            });
-
-                                                            traf
-                                                        });
-
-                                                        let data_offset = 16 + moof.len();
-                                                        moof.trafs[0].truns[0].data_offset = Some(data_offset as u32);
-                                                        moof.trafs[1].truns[0].data_offset = Some((data_offset + self.data_v.len()) as u32);
-
-                                                        moof
-                                                    }.as_bytes(),
-                                                }.as_bytes().chunk()).expect("Fail on moof");
-
-                                                f.write_all(isobmff::Object {
-                                                    box_type: 0x6d646174,
-                                                    payload: {
-                                                        let mut v = self.data_v.split_to(self.data_v.len());
-                                                        v.put(self.data_a.split_to(self.data_a.len()));
-
-                                                        v
-                                                    },
-                                                }.as_bytes().chunk()).expect("Fail on mdat");
+                                            if 1 == frame {
+                                                self.flush_segment();
                                             }
 
                                             self.trun_v.push((payload.len() as u32, composition_time as u32));
@@ -728,6 +601,7 @@ impl Connection {
                                         }
                                         2 => { // AVC end of sequence
                                             // Empty
+                                            self.flush_segment();
                                             write!(self.f_playlist, "#EXT-X-ENDLIST\n").unwrap();
                                         }
                                         _ => unreachable!()
@@ -752,6 +626,143 @@ impl Connection {
 
             unsafe { buf.set_len(buf.capacity()) };
         }
+    }
+
+    fn write_init_seg(&mut self) {
+        let mut f = File::create("init.mp4").unwrap();
+        f.write_all(isobmff::Object {
+            box_type: isobmff::ftyp::ftyp::BOX_TYPE,
+            payload: isobmff::ftyp::ftyp {
+                major_brand: 0x69736F35,
+                minor_version: 512,
+                compatible_brands: vec![
+                    0x69736F35,
+                    0x69736F36,
+                    0x6D703431,
+                ],
+            }.as_bytes(),
+        }.as_bytes().chunk()).expect("Fail ftyp");
+        f.write_all(isobmff::Object {
+            box_type: isobmff::moov::moov::BOX_TYPE,
+            payload: {
+                let mut v = self.moov.as_bytes();
+
+                v.put(isobmff::Object {
+                    box_type: 0x75647461,
+                    payload: isobmff::Object {
+                        box_type: 0x6D657461,
+                        payload: {
+                            let mut v = BytesMut::with_capacity(82);
+
+                            v.put(isobmff::FullBox::new(0, 0).as_bytes());
+
+                            v.put_u32(0x00000021); v.put_u32(0x68646c72);
+                            v.put_u64(0x0000000000000000);
+                            v.put_u32(0x6d646972);
+                            v.put_u32(0x6170706c); v.put_u32(0x00000000); v.put_u32(0x00000000); v.put_u8(0x00);
+                            v.put_u32(0x0000002d); v.put_u32(0x696c7374);
+                            v.put_u32(0x00000025);
+                            v.put_u32(0xa9746f6f);
+                            v.put_u32(0x0000001d);
+                            v.put_u32(0x64617461);
+                            v.put_u32(0x00000001);
+                            v.put_u32(0x00000000);
+                            v.put_u32(0x4c617666);
+                            v.put_u32(0x35392e31);
+                            v.put_u32(0x362e3130);
+                            v.put_u8(0x30);
+
+                            v
+                        },
+                    }.as_bytes(),
+                }.as_bytes());
+
+                v
+            },
+        }.as_bytes().chunk()).expect("Fail moov");
+
+        write!(self.f_playlist, "#EXTM3U\n#EXT-X-VERSION:7\n#EXT-X-TARGETDURATION:2\n#EXT-X-MEDIA-SEQUENCE:0\n#EXT-X-PLAYLIST-TYPE:EVENT\n#EXT-X-MAP:URI=\"init.mp4\"\n").unwrap();
+    }
+
+    fn flush_segment(&mut self) {
+        if 0 == self.trun_v.len() {
+            return;
+        }
+
+        self.sequence_number += 1;
+
+        write!(self.f_playlist, "#EXTINF:2.005571,\nseg_{}.m4s\n", self.sequence_number).unwrap();
+
+        let mut f = File::create(format!("seg_{}.m4s", self.sequence_number)).unwrap();
+
+        f.write_all(isobmff::Object {
+            box_type: isobmff::moof::moof::BOX_TYPE,
+            payload: {
+                let mut moof = isobmff::moof::moof::default();
+
+                moof.mfhd.sequence_number = self.sequence_number;
+
+                moof.trafs.push({
+                    let mut traf = isobmff::moof::traf::default();
+
+                    traf.tfhd.track_id = 1;
+                    traf.tfhd.default_sample_duration = Some(self.moov.traks[0].mdia.mdhd.timescale/self.framerate);
+                    traf.tfhd.default_sample_flags = Some(0x1010000);
+
+                    traf.truns.push({
+                        let mut trun = isobmff::moof::trun::default();
+
+                        trun.first_sample_flags = Some(0x2000000);
+                        for (size, composition_time_offset) in self.trun_v.drain(..self.trun_v.len()) {
+                            trun.samples.push((None, Some(size), None, Some(self.moov.traks[0].mdia.mdhd.timescale * composition_time_offset / 1000)));
+                        }
+
+                        trun.data_offset = Some(0);
+
+                        trun
+                    });
+
+                    traf
+                });
+                moof.trafs.push({
+                    let mut traf = isobmff::moof::traf::default();
+
+                    traf.tfhd.track_id = 2;
+                    traf.tfhd.default_sample_duration = Some(1024);
+                    traf.tfhd.default_sample_flags = Some(0x2000000);
+
+                    traf.truns.push({
+                        let mut trun = isobmff::moof::trun::default();
+
+                        for size in self.trun_a.drain(..self.trun_a.len()) {
+                            trun.samples.push((None, Some(size), None, None));
+                        }
+
+                        trun.data_offset = Some(0);
+
+                        trun
+                    });
+
+                    traf
+                });
+
+                let data_offset = 16 + moof.len();
+                moof.trafs[0].truns[0].data_offset = Some(data_offset as u32);
+                moof.trafs[1].truns[0].data_offset = Some((data_offset + self.data_v.len()) as u32);
+
+                moof
+            }.as_bytes(),
+        }.as_bytes().chunk()).expect("Fail on moof");
+
+        f.write_all(isobmff::Object {
+            box_type: 0x6d646174,
+            payload: {
+                let mut v = self.data_v.split_to(self.data_v.len());
+                v.put(self.data_a.split_to(self.data_a.len()));
+
+                v
+            },
+        }.as_bytes().chunk()).expect("Fail on mdat");
     }
 
     // RPC methods
@@ -898,6 +909,8 @@ impl Connection {
         if let amf::Value::Amf0Value(amf::amf0::Value::Number(stream_id)) = &packet[3] {
             eprintln!("{:?}({:?})", "deleteStream", stream_id);
         }
+
+        self.flush_segment();
         write!(self.f_playlist, "#EXT-X-ENDLIST\n").unwrap();
     }
 }
