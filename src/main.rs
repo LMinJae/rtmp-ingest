@@ -642,60 +642,6 @@ impl Connection {
                                                 let mut f = File::create(format!("seg_{}.m4s", self.sequence_number)).unwrap();
 
                                                 f.write_all(isobmff::Object {
-                                                    box_type: 0x73747970,
-                                                    payload: {
-                                                        let mut v = BytesMut::with_capacity(16);
-
-                                                        v.put_u32(0x6d736468);
-                                                        v.put_u32(0x00000000);
-                                                        v.put_u32(0x6d736468);
-                                                        v.put_u32(0x6d736978);
-
-                                                        v
-                                                    },
-                                                }.as_bytes().chunk()).expect("Fail on styp");
-                                                f.write_all(isobmff::Object {
-                                                    box_type: 0x73696478,
-                                                    payload: {
-                                                        let mut v = isobmff::FullBox::new(1, 0).as_bytes();
-
-                                                        v.put_u32(1);
-                                                        v.put_u32(self.moov.traks[0].mdia.mdhd.timescale);
-                                                        v.put_u64(self.moov.traks[0].mdia.mdhd.timescale as u64 * 2 * self.sequence_number as u64);
-                                                        v.put_u64(0);
-                                                        v.put_u16(0);
-                                                        v.put_u16(1);
-                                                        {
-                                                            v.put_u32(49536);
-                                                            v.put_u32((self.trun_v.len() as u32) * self.moov.traks[0].mdia.mdhd.timescale / 30);
-                                                            v.put_u32(1 << 31);
-                                                        }
-
-                                                        v
-                                                    },
-                                                }.as_bytes().chunk()).expect("Fail on sidx[video]");
-                                                f.write_all(isobmff::Object {
-                                                    box_type: 0x73696478,
-                                                    payload: {
-                                                        let mut v = isobmff::FullBox::new(1, 0).as_bytes();
-
-                                                        v.put_u32(2);
-                                                        v.put_u32(self.moov.traks[1].mdia.mdhd.timescale);
-                                                        v.put_u64(self.moov.traks[1].mdia.mdhd.timescale as u64 * 2 * self.sequence_number as u64);
-                                                        v.put_u64(0);
-                                                        v.put_u16(0);
-                                                        v.put_u16(1);
-                                                        {
-                                                            v.put_u32(49536);
-                                                            v.put_u32((self.trun_a.len() as u32) * 1024);
-                                                            v.put_u32(1 << 31);
-                                                        }
-
-                                                        v
-                                                    },
-                                                }.as_bytes().chunk()).expect("Fail on sidx[audio]");
-
-                                                f.write_all(isobmff::Object {
                                                     box_type: isobmff::moof::moof::BOX_TYPE,
                                                     payload: {
                                                         let mut moof = isobmff::moof::moof::default();
@@ -707,16 +653,7 @@ impl Connection {
 
                                                             traf.tfhd.track_id = 1;
                                                             traf.tfhd.default_sample_duration = Some(self.moov.traks[0].mdia.mdhd.timescale/30);
-                                                            traf.tfhd.default_sample_size = Some(6772);
                                                             traf.tfhd.default_sample_flags = Some(0x1010000);
-
-                                                            traf.tfdt = Some({
-                                                                let mut tfdt = isobmff::moof::tfdt::default();
-
-                                                                tfdt.base_media_decode_time = (self.moov.traks[0].mdia.mdhd.timescale * 2 * self.sequence_number) as u64;
-
-                                                                tfdt
-                                                            });
 
                                                             traf.truns.push({
                                                                 let mut trun = isobmff::moof::trun::default();
@@ -738,7 +675,6 @@ impl Connection {
 
                                                             traf.tfhd.track_id = 2;
                                                             traf.tfhd.default_sample_duration = Some(1024);
-                                                            traf.tfhd.default_sample_size = Some(6);
                                                             traf.tfhd.default_sample_flags = Some(0x2000000);
 
                                                             traf.truns.push({
