@@ -102,6 +102,7 @@ struct Connection {
 
     moov: isobmff::moov::moov,
     sequence_number: u32,
+    framerate: u32,
 
     trun_v: Vec<(u32, u32)>,
     data_v: BytesMut,
@@ -126,6 +127,7 @@ impl Connection {
 
             moov: isobmff::moov::moov::default(),
             sequence_number: 0,
+            framerate: 30,
 
             trun_v: vec![],
             data_v: Default::default(),
@@ -265,6 +267,10 @@ impl Connection {
                                             }
                                         };
                                         eprintln!("{:?} {:?} {:?}", p0, p1, p2);
+
+                                        self.framerate = if let amf::amf0::Value::Number(n) = p2["framerate"] {
+                                            n as u32
+                                        } else { 30 };
 
                                         self.moov.mvhd.timescale = 1000;
 
@@ -652,7 +658,7 @@ impl Connection {
                                                             let mut traf = isobmff::moof::traf::default();
 
                                                             traf.tfhd.track_id = 1;
-                                                            traf.tfhd.default_sample_duration = Some(self.moov.traks[0].mdia.mdhd.timescale/30);
+                                                            traf.tfhd.default_sample_duration = Some(self.moov.traks[0].mdia.mdhd.timescale/self.framerate);
                                                             traf.tfhd.default_sample_flags = Some(0x1010000);
 
                                                             traf.truns.push({
