@@ -461,62 +461,6 @@ impl Connection {
                                                         },
                                                     }
                                                 );
-
-                                                {
-                                                    let mut f = File::create("init.mp4").unwrap();
-                                                    f.write_all(isobmff::Object {
-                                                        box_type: isobmff::ftyp::ftyp::BOX_TYPE,
-                                                        payload: isobmff::ftyp::ftyp {
-                                                            major_brand: 0x69736F35,
-                                                            minor_version: 512,
-                                                            compatible_brands: vec![
-                                                                0x69736F35,
-                                                                0x69736F36,
-                                                                0x6D703431,
-                                                            ],
-                                                        }.as_bytes(),
-                                                    }.as_bytes().chunk()).expect("Fail ftyp");
-                                                    f.write_all(isobmff::Object {
-                                                        box_type: isobmff::moov::moov::BOX_TYPE,
-                                                        payload: {
-                                                            let mut v = self.moov.as_bytes();
-
-                                                            v.put(isobmff::Object {
-                                                                box_type: 0x75647461,
-                                                                payload: isobmff::Object {
-                                                                    box_type: 0x6D657461,
-                                                                    payload: {
-                                                                        let mut v = BytesMut::with_capacity(82);
-
-                                                                        v.put(isobmff::FullBox::new(0, 0).as_bytes());
-
-                                                                        v.put_u32(0x00000021); v.put_u32(0x68646c72);
-                                                                            v.put_u64(0x0000000000000000);
-                                                                            v.put_u32(0x6d646972);
-                                                                            v.put_u32(0x6170706c); v.put_u32(0x00000000); v.put_u32(0x00000000); v.put_u8(0x00);
-                                                                        v.put_u32(0x0000002d); v.put_u32(0x696c7374);
-                                                                            v.put_u32(0x00000025);
-                                                                            v.put_u32(0xa9746f6f);
-                                                                            v.put_u32(0x0000001d);
-                                                                            v.put_u32(0x64617461);
-                                                                            v.put_u32(0x00000001);
-                                                                            v.put_u32(0x00000000);
-                                                                            v.put_u32(0x4c617666);
-                                                                            v.put_u32(0x35392e31);
-                                                                            v.put_u32(0x362e3130);
-                                                                            v.put_u8(0x30);
-
-                                                                        v
-                                                                    },
-                                                                }.as_bytes(),
-                                                            }.as_bytes());
-
-                                                            v
-                                                        },
-                                                    }.as_bytes().chunk()).expect("Fail moov");
-
-                                                    write!(self.f_playlist, "#EXTM3U\n#EXT-X-VERSION:7\n#EXT-X-TARGETDURATION:2\n#EXT-X-MEDIA-SEQUENCE:0\n#EXT-X-PLAYLIST-TYPE:EVENT\n#EXT-X-MAP:URI=\"init.mp4\"\n").unwrap();
-                                                }
                                             }
                                             1 => {
                                                 self.trun_a.push(payload.len() as u32);
@@ -623,6 +567,62 @@ impl Connection {
                                                     }
                                                 }
                                             );
+
+                                            {
+                                                let mut f = File::create("init.mp4").unwrap();
+                                                f.write_all(isobmff::Object {
+                                                    box_type: isobmff::ftyp::ftyp::BOX_TYPE,
+                                                    payload: isobmff::ftyp::ftyp {
+                                                        major_brand: 0x69736F35,
+                                                        minor_version: 512,
+                                                        compatible_brands: vec![
+                                                            0x69736F35,
+                                                            0x69736F36,
+                                                            0x6D703431,
+                                                        ],
+                                                    }.as_bytes(),
+                                                }.as_bytes().chunk()).expect("Fail ftyp");
+                                                f.write_all(isobmff::Object {
+                                                    box_type: isobmff::moov::moov::BOX_TYPE,
+                                                    payload: {
+                                                        let mut v = self.moov.as_bytes();
+
+                                                        v.put(isobmff::Object {
+                                                            box_type: 0x75647461,
+                                                            payload: isobmff::Object {
+                                                                box_type: 0x6D657461,
+                                                                payload: {
+                                                                    let mut v = BytesMut::with_capacity(82);
+
+                                                                    v.put(isobmff::FullBox::new(0, 0).as_bytes());
+
+                                                                    v.put_u32(0x00000021); v.put_u32(0x68646c72);
+                                                                    v.put_u64(0x0000000000000000);
+                                                                    v.put_u32(0x6d646972);
+                                                                    v.put_u32(0x6170706c); v.put_u32(0x00000000); v.put_u32(0x00000000); v.put_u8(0x00);
+                                                                    v.put_u32(0x0000002d); v.put_u32(0x696c7374);
+                                                                    v.put_u32(0x00000025);
+                                                                    v.put_u32(0xa9746f6f);
+                                                                    v.put_u32(0x0000001d);
+                                                                    v.put_u32(0x64617461);
+                                                                    v.put_u32(0x00000001);
+                                                                    v.put_u32(0x00000000);
+                                                                    v.put_u32(0x4c617666);
+                                                                    v.put_u32(0x35392e31);
+                                                                    v.put_u32(0x362e3130);
+                                                                    v.put_u8(0x30);
+
+                                                                    v
+                                                                },
+                                                            }.as_bytes(),
+                                                        }.as_bytes());
+
+                                                        v
+                                                    },
+                                                }.as_bytes().chunk()).expect("Fail moov");
+
+                                                write!(self.f_playlist, "#EXTM3U\n#EXT-X-VERSION:7\n#EXT-X-TARGETDURATION:2\n#EXT-X-MEDIA-SEQUENCE:0\n#EXT-X-PLAYLIST-TYPE:EVENT\n#EXT-X-MAP:URI=\"init.mp4\"\n").unwrap();
+                                            }
 
                                             let _ = payload.split_to(9);
                                             // sps
