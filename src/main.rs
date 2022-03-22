@@ -99,6 +99,7 @@ struct Connection {
     f_a: File,
 
     f_playlist: File,
+    prev_dts: u32,
 
     moov: isobmff::moov::moov,
     sequence_number: u32,
@@ -124,6 +125,7 @@ impl Connection {
             f_a: File::create("./dump.aac").unwrap(),
 
             f_playlist: File::create("./prog_index.m3u8").unwrap(),
+            prev_dts: 0,
 
             moov: isobmff::moov::moov::default(),
             sequence_number: 0,
@@ -587,7 +589,9 @@ impl Connection {
                                         }
                                         1 => { // AVC NALU
                                             if 1 == frame {
-                                                self.flush_segment();
+                                                self.flush_segment(dts);
+
+                                                self.prev_dts = dts;
                                             }
 
                                             self.trun_v.push((payload.len() as u32, composition_time as u32));
@@ -601,7 +605,7 @@ impl Connection {
                                         }
                                         2 => { // AVC end of sequence
                                             // Empty
-                                            self.flush_segment();
+                                            self.flush_segment(dts);
                                             write!(self.f_playlist, "#EXT-X-ENDLIST\n").unwrap();
                                         }
                                         _ => unreachable!()
@@ -684,14 +688,14 @@ impl Connection {
         write!(self.f_playlist, "#EXTM3U\n#EXT-X-VERSION:7\n#EXT-X-TARGETDURATION:2\n#EXT-X-MEDIA-SEQUENCE:0\n#EXT-X-PLAYLIST-TYPE:EVENT\n#EXT-X-MAP:URI=\"init.mp4\"\n").unwrap();
     }
 
-    fn flush_segment(&mut self) {
+    fn flush_segment(&mut self, dts: u32) {
         if 0 == self.trun_v.len() {
             return;
         }
 
         self.sequence_number += 1;
 
-        write!(self.f_playlist, "#EXTINF:2.005571,\nseg_{}.m4s\n", self.sequence_number).unwrap();
+        write!(self.f_playlist, "#EXTINF:{:0.3},\nseg_{}.m4s\n", (dts - self.prev_dts) as f32 / 1000., self.sequence_number).unwrap();
 
         let mut f = File::create(format!("seg_{}.m4s", self.sequence_number)).unwrap();
 
@@ -910,7 +914,6 @@ impl Connection {
             eprintln!("{:?}({:?})", "deleteStream", stream_id);
         }
 
-        self.flush_segment();
         write!(self.f_playlist, "#EXT-X-ENDLIST\n").unwrap();
     }
 }
