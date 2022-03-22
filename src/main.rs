@@ -265,7 +265,20 @@ impl Connection {
                                                 (n as u32) << 16
                                             } else { 0 };
 
-                                            trak.mdia.mdhd.timescale = 90000;
+                                            trak.edts = Some(
+                                                isobmff::moov::edts {
+                                                    elst: Some({
+                                                        let mut elst = isobmff::moov::elst::default();
+
+                                                        elst.entries.push((66, -1, 1));
+                                                        elst.entries.push((0, 768, 1));
+
+                                                        elst
+                                                    }),
+                                                }
+                                            );
+
+                                            trak.mdia.mdhd.timescale = 11488;
 
                                             trak.mdia.hdlr = isobmff::moov::hdlr::vide("VideoHandler");
 
@@ -279,6 +292,19 @@ impl Connection {
 
                                             trak.tkhd.track_id = 2;
                                             trak.tkhd.alternate_group = 1;
+
+                                            trak.edts = Some(
+                                                isobmff::moov::edts {
+                                                    elst: Some({
+                                                        let mut elst = isobmff::moov::elst::default();
+
+                                                        elst.entries.push((20, -1, 1));
+                                                        elst.entries.push((0, 0, 1));
+
+                                                        elst
+                                                    }),
+                                                }
+                                            );
 
                                             trak.mdia.mdhd.timescale = 22050;
 
@@ -356,7 +382,7 @@ impl Connection {
                                                                     v.put_u8(0x80);
                                                                     v.put_u8(0x80);
                                                                     v.put_u8(0x80);
-                                                                    v.put_u8(0x22);
+                                                                    v.put_u8(0x25);
                                                                     v.put_u8(0x00);
                                                                     v.put_u8(0x02);
                                                                     v.put_u8(0x00);
@@ -364,32 +390,26 @@ impl Connection {
                                                                     v.put_u8(0x80);
                                                                     v.put_u8(0x80);
                                                                     v.put_u8(0x80);
-                                                                    v.put_u8(0x14);
+                                                                    v.put_u8(0x17);
 
                                                                     v.put_u8(0x40);
                                                                     v.put_u8(0x15);
-
-                                                                    v.put_u8(0x00);
-                                                                    v.put_u8(0x00);
-                                                                    v.put_u8(0x00);
-
-                                                                    v.put_u8(0x00);
-                                                                    v.put_u8(0x00);
-                                                                    v.put_u8(0x11);
-                                                                    v.put_u8(0x6b);
-
-                                                                    v.put_u8(0x00);
-                                                                    v.put_u8(0x00);
-                                                                    v.put_u8(0x11);
-                                                                    v.put_u8(0x6b);
+                                                                    v.put_u8(0x00); v.put_u8(0x00); v.put_u8(0x00);
+                                                                    v.put_u32(0x0001f400);
+                                                                    v.put_u32(0x0001f400);
 
                                                                     v.put_u8(0x05);
                                                                     v.put_u8(0x80);
                                                                     v.put_u8(0x80);
                                                                     v.put_u8(0x80);
-                                                                    v.put_u8(0x02);
+                                                                    v.put_u8(0x05);
+
                                                                     v.put_u8(0x13);
                                                                     v.put_u8(0x90);
+                                                                    v.put_u8(0x56);
+                                                                    v.put_u8(0xe5);
+                                                                    v.put_u8(0x00);
+
                                                                     v.put_u8(0x06);
                                                                     v.put_u8(0x80);
                                                                     v.put_u8(0x80);
@@ -408,8 +428,8 @@ impl Connection {
                                                                     let mut v = BytesMut::with_capacity(12);
 
                                                                     v.put_u32(0);
-                                                                    v.put_u32(4459);
-                                                                    v.put_u32(4459);
+                                                                    v.put_u32(128000);
+                                                                    v.put_u32(128000);
 
                                                                     v
                                                                 }
@@ -425,13 +445,11 @@ impl Connection {
                                                     f.write_all(isobmff::Object {
                                                         box_type: isobmff::ftyp::ftyp::BOX_TYPE,
                                                         payload: isobmff::ftyp::ftyp {
-                                                            major_brand: 0x69736F6D,
+                                                            major_brand: 0x69736F35,
                                                             minor_version: 512,
                                                             compatible_brands: vec![
-                                                                0x69736F6D,
+                                                                0x69736F35,
                                                                 0x69736F36,
-                                                                0x69736F32,
-                                                                0x61766331,
                                                                 0x6D703431,
                                                             ],
                                                         }.as_bytes(),
@@ -572,19 +590,6 @@ impl Connection {
                                                                     colr.put_u16(1);
                                                                     colr.put_u16(6);
                                                                     colr.put_u8(0);
-
-                                                                    colr
-                                                                },
-                                                            }.as_bytes());
-
-                                                            v.put(isobmff::Object {
-                                                                box_type: 0x62747274,
-                                                                payload: {
-                                                                    let mut colr = BytesMut::with_capacity(12);
-
-                                                                    colr.put_u32(0x00000000);
-                                                                    colr.put_u32(0x000335ff);
-                                                                    colr.put_u32(0x000335ff);
 
                                                                     colr
                                                                 },
