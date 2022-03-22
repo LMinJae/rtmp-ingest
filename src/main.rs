@@ -294,7 +294,7 @@ impl Connection {
                                                 }
                                             );
 
-                                            trak.mdia.mdhd.timescale = 11488;
+                                            trak.mdia.mdhd.timescale = 1000;
 
                                             trak.mdia.hdlr = isobmff::moov::hdlr::vide("VideoHandler");
 
@@ -667,7 +667,7 @@ impl Connection {
                                                         v.put_u16(1);
                                                         {
                                                             v.put_u32(49536);
-                                                            v.put_u32(23040);
+                                                            v.put_u32((self.trun_v.len() as u32) * self.moov.traks[0].mdia.mdhd.timescale / 30);
                                                             v.put_u32(1 << 31);
                                                         }
 
@@ -687,7 +687,7 @@ impl Connection {
                                                         v.put_u16(1);
                                                         {
                                                             v.put_u32(49536);
-                                                            v.put_u32(44032);
+                                                            v.put_u32((self.trun_a.len() as u32) * 1024);
                                                             v.put_u32(1 << 31);
                                                         }
 
@@ -706,7 +706,7 @@ impl Connection {
                                                             let mut traf = isobmff::moof::traf::default();
 
                                                             traf.tfhd.track_id = 1;
-                                                            traf.tfhd.default_sample_duration = Some(384);
+                                                            traf.tfhd.default_sample_duration = Some(self.moov.traks[0].mdia.mdhd.timescale/30);
                                                             traf.tfhd.default_sample_size = Some(6772);
                                                             traf.tfhd.default_sample_flags = Some(0x1010000);
 
@@ -723,7 +723,7 @@ impl Connection {
 
                                                                 trun.first_sample_flags = Some(0x2000000);
                                                                 for (size, composition_time_offset) in self.trun_v.drain(..self.trun_v.len()) {
-                                                                    trun.samples.push((None, Some(size), None, Some(composition_time_offset)));
+                                                                    trun.samples.push((None, Some(size), None, Some(self.moov.traks[0].mdia.mdhd.timescale * composition_time_offset / 1000)));
                                                                 }
 
                                                                 trun.data_offset = Some(0);
