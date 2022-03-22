@@ -102,6 +102,7 @@ struct Connection {
     prev_dts: u32,
 
     moov: isobmff::moov::moov,
+    need_write_init_seg: bool,
     sequence_number: u32,
     framerate: u32,
 
@@ -128,6 +129,7 @@ impl Connection {
             prev_dts: 0,
 
             moov: isobmff::moov::moov::default(),
+            need_write_init_seg: true,
             sequence_number: 0,
             framerate: 30,
 
@@ -344,6 +346,8 @@ impl Connection {
                                                 eprintln!("[AAC] esds: AudioSpecificConfig");
                                                 eprintln!("\t{:02x?}", payload.chunk());
 
+                                                self.need_write_init_seg = true;
+
                                                 self.moov.traks[1].mdia.minf.stbl.stsd.entries.push(
                                                     isobmff::moov::SampleEntry::mp4a {
                                                         base: Box::new(isobmff::moov::SampleEntry::Audio {
@@ -494,6 +498,8 @@ impl Connection {
                                                 eprintln!("{:02?}", payload.chunk());
                                             }
 
+                                            self.need_write_init_seg = true;
+
                                             let width = (self.moov.traks[0].tkhd.width >> 16) as u16;
                                             let height = (self.moov.traks[0].tkhd.height >> 16) as u16;
                                             self.moov.traks[0].mdia.minf.stbl.stsd.entries.push(
@@ -544,8 +550,6 @@ impl Connection {
                                                 }
                                             );
 
-                                            self.write_init_seg();
-
                                             let _ = payload.split_to(9);
                                             // sps
                                             {
@@ -579,8 +583,6 @@ impl Connection {
                                         }
                                         2 => { // AVC end of sequence
                                             // Empty
-                                            self.flush_segment(dts);
-                                            write!(self.f_playlist, "#EXT-X-ENDLIST\n").unwrap();
                                         }
                                         _ => unreachable!()
                                     }
@@ -631,6 +633,11 @@ impl Connection {
     fn flush_segment(&mut self, dts: u32) {
         if 0 == self.trun_v.len() {
             return;
+        }
+        if self.need_write_init_seg {
+            self.need_write_init_seg = false;
+
+            self.write_init_seg();
         }
 
         self.sequence_number += 1;
