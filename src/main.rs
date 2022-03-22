@@ -348,7 +348,7 @@ impl Connection {
                                                     isobmff::moov::SampleEntry::mp4a {
                                                         base: Box::new(isobmff::moov::SampleEntry::Audio {
                                                             base: Box::new(isobmff::moov::SampleEntry::Base {
-                                                                handler_type: 0x6D703461,
+                                                                handler_type: isobmff::types::types::mp4a,
                                                                 data_reference_index: 1,
                                                             }),
 
@@ -372,7 +372,7 @@ impl Connection {
                                                         }),
                                                         ext: {
                                                             let mut v = isobmff::Object {
-                                                                box_type: 0x65736473,
+                                                                box_type: isobmff::types::types::esds,
                                                                 payload: {
                                                                     let mut v = isobmff::FullBox::new(0, 0).as_bytes();
 
@@ -421,7 +421,7 @@ impl Connection {
                                                             }.as_bytes();
 
                                                             v.put(isobmff::Object {
-                                                                box_type: 0x62747274,
+                                                                box_type: isobmff::types::types::btrt,
                                                                 payload: {
                                                                     let mut v = BytesMut::with_capacity(12);
 
@@ -500,7 +500,7 @@ impl Connection {
                                                 isobmff::moov::SampleEntry::avc1 {
                                                     base: Box::new(isobmff::moov::SampleEntry::Visual {
                                                         base: Box::new(isobmff::moov::SampleEntry::Base {
-                                                            handler_type: 0x61766331,
+                                                            handler_type: isobmff::types::types::avc1,
                                                             data_reference_index: 1,
                                                         }),
 
@@ -514,7 +514,7 @@ impl Connection {
                                                     }),
                                                     ext: {
                                                         let mut v = isobmff::Object {
-                                                            box_type: 0x61766343,
+                                                            box_type: isobmff::types::types::avcC,
                                                             payload: {
                                                                 let mut v = payload.clone();
 
@@ -525,7 +525,7 @@ impl Connection {
                                                         }.as_bytes();
 
                                                         v.put(isobmff::Object {
-                                                            box_type: 0x636F6C72,
+                                                            box_type: isobmff::types::types::colr,
                                                             payload: {
                                                                 let mut colr = BytesMut::with_capacity(11);
 
@@ -611,12 +611,12 @@ impl Connection {
         f.write_all(isobmff::Object {
             box_type: isobmff::ftyp::ftyp::BOX_TYPE,
             payload: isobmff::ftyp::ftyp {
-                major_brand: 0x69736F35,
+                major_brand: isobmff::types::types::iso5,
                 minor_version: 512,
                 compatible_brands: vec![
-                    0x69736F35,
-                    0x69736F36,
-                    0x6D703431,
+                    isobmff::types::types::iso5,
+                    isobmff::types::types::iso6,
+                    isobmff::types::types::mp41,
                 ],
             }.as_bytes(),
         }.as_bytes().chunk()).expect("Fail ftyp");
@@ -699,7 +699,7 @@ impl Connection {
         }.as_bytes().chunk()).expect("Fail on moof");
 
         f.write_all(isobmff::Object {
-            box_type: 0x6d646174,
+            box_type: isobmff::types::types::mdat,
             payload: {
                 let mut v = self.data_v.split_to(self.data_v.len());
                 v.put(self.data_a.split_to(self.data_a.len()));
