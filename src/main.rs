@@ -661,7 +661,7 @@ impl Connection {
 
                                                         v.put_u32(1);
                                                         v.put_u32(self.moov.traks[0].mdia.mdhd.timescale);
-                                                        v.put_u64(self.moov.traks[0].mdia.mdhd.timescale as u64 * 2);
+                                                        v.put_u64(self.moov.traks[0].mdia.mdhd.timescale as u64 * 2 * self.sequence_number as u64);
                                                         v.put_u64(0);
                                                         v.put_u16(0);
                                                         v.put_u16(1);
@@ -681,7 +681,7 @@ impl Connection {
 
                                                         v.put_u32(2);
                                                         v.put_u32(self.moov.traks[1].mdia.mdhd.timescale);
-                                                        v.put_u64(self.moov.traks[1].mdia.mdhd.timescale as u64 * 2);
+                                                        v.put_u64(self.moov.traks[1].mdia.mdhd.timescale as u64 * 2 * self.sequence_number as u64);
                                                         v.put_u64(0);
                                                         v.put_u16(0);
                                                         v.put_u16(1);
@@ -713,7 +713,7 @@ impl Connection {
                                                             traf.tfdt = Some({
                                                                 let mut tfdt = isobmff::moof::tfdt::default();
 
-                                                                tfdt.base_media_decode_time = (self.moov.traks[0].mdia.mdhd.timescale * dts / 1000) as u64;
+                                                                tfdt.base_media_decode_time = (self.moov.traks[0].mdia.mdhd.timescale * 2 * self.sequence_number) as u64;
 
                                                                 tfdt
                                                             });
@@ -740,14 +740,6 @@ impl Connection {
                                                             traf.tfhd.default_sample_duration = Some(1024);
                                                             traf.tfhd.default_sample_size = Some(6);
                                                             traf.tfhd.default_sample_flags = Some(0x2000000);
-
-                                                            traf.tfdt = Some({
-                                                                let mut tfdt = isobmff::moof::tfdt::default();
-
-                                                                tfdt.base_media_decode_time = (self.moov.traks[1].mdia.mdhd.timescale * dts / 1000) as u64;
-
-                                                                tfdt
-                                                            });
 
                                                             traf.truns.push({
                                                                 let mut trun = isobmff::moof::trun::default();
