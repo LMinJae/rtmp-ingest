@@ -101,6 +101,11 @@ struct Connection {
     f_playlist: File,
 
     moov: isobmff::moov::moov,
+
+    trun_v: Vec<(u32, u32)>,
+    data_v: BytesMut,
+    trun_a: Vec<u32>,
+    data_a: BytesMut,
 }
 
 impl Connection {
@@ -119,6 +124,11 @@ impl Connection {
             f_playlist: File::create("./prog_index.m3u8").unwrap(),
 
             moov: isobmff::moov::moov::default(),
+
+            trun_v: vec![],
+            data_v: Default::default(),
+            trun_a: vec![],
+            data_a: Default::default(),
         }
     }
 
@@ -501,6 +511,9 @@ impl Connection {
                                                 }
                                             }
                                             1 => {
+                                                self.trun_a.push(payload.len() as u32);
+                                                self.data_a.put(payload.chunk());
+
                                                 self.f_a.write_u16::<BigEndian>(0xfff1).unwrap();
                                                 self.f_a.write_u32::<BigEndian>({
                                                     // profile
@@ -530,7 +543,7 @@ impl Connection {
                             rtmp::message::Message::Video { dts, control, mut payload } => {
                                 let frame = control >> 4;
                                 let codec = control & 0xF;
-                                let (avc_packet_type, _composition_time) = if 7 == codec {
+                                let (avc_packet_type, composition_time) = if 7 == codec {
                                     let t = payload.get_u8();
                                     let mut s = 0_i32;
                                     if 1 == t {
@@ -619,6 +632,9 @@ impl Connection {
                                             }
                                         }
                                         1 => { // AVC NALU
+                                            self.trun_v.push((payload.len() as u32, composition_time as u32));
+                                            self.data_v.put(payload.chunk());
+
                                             while 0 < payload.len() {
                                                 let len = payload.get_u32();
                                                 self.f_v.write_u32::<BigEndian>(1).unwrap();
