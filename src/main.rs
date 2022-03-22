@@ -101,6 +101,7 @@ struct Connection {
     f_playlist: File,
 
     moov: isobmff::moov::moov,
+    sequence_number: u32,
 
     trun_v: Vec<(u32, u32)>,
     data_v: BytesMut,
@@ -124,6 +125,7 @@ impl Connection {
             f_playlist: File::create("./prog_index.m3u8").unwrap(),
 
             moov: isobmff::moov::moov::default(),
+            sequence_number: 0,
 
             trun_v: vec![],
             data_v: Default::default(),
@@ -632,6 +634,155 @@ impl Connection {
                                             }
                                         }
                                         1 => { // AVC NALU
+                                            if 1 == frame && 0 < self.trun_v.len() {
+                                                self.sequence_number += 1;
+
+                                                write!(self.f_playlist, "#EXTINF:2.005571,\nseg_{}.m4s\n", self.sequence_number).unwrap();
+
+                                                let mut f = File::create(format!("seg_{}.m4s", self.sequence_number)).unwrap();
+
+                                                f.write_all(isobmff::Object {
+                                                    box_type: 0x73747970,
+                                                    payload: {
+                                                        let mut v = BytesMut::with_capacity(16);
+
+                                                        v.put_u32(0x6d736468);
+                                                        v.put_u32(0x00000000);
+                                                        v.put_u32(0x6d736468);
+                                                        v.put_u32(0x6d736978);
+
+                                                        v
+                                                    },
+                                                }.as_bytes().chunk()).expect("Fail on styp");
+                                                f.write_all(isobmff::Object {
+                                                    box_type: 0x73696478,
+                                                    payload: {
+                                                        let mut v = isobmff::FullBox::new(1, 0).as_bytes();
+
+                                                        v.put_u32(1);
+                                                        v.put_u32(self.moov.traks[0].mdia.mdhd.timescale);
+                                                        v.put_u64(self.moov.traks[0].mdia.mdhd.timescale as u64 * 2);
+                                                        v.put_u64(0);
+                                                        v.put_u16(0);
+                                                        v.put_u16(1);
+                                                        {
+                                                            v.put_u32(49536);
+                                                            v.put_u32(23040);
+                                                            v.put_u32(1 << 31);
+                                                        }
+
+                                                        v
+                                                    },
+                                                }.as_bytes().chunk()).expect("Fail on sidx[video]");
+                                                f.write_all(isobmff::Object {
+                                                    box_type: 0x73696478,
+                                                    payload: {
+                                                        let mut v = isobmff::FullBox::new(1, 0).as_bytes();
+
+                                                        v.put_u32(2);
+                                                        v.put_u32(self.moov.traks[1].mdia.mdhd.timescale);
+                                                        v.put_u64(self.moov.traks[1].mdia.mdhd.timescale as u64 * 2);
+                                                        v.put_u64(0);
+                                                        v.put_u16(0);
+                                                        v.put_u16(1);
+                                                        {
+                                                            v.put_u32(49536);
+                                                            v.put_u32(44032);
+                                                            v.put_u32(1 << 31);
+                                                        }
+
+                                                        v
+                                                    },
+                                                }.as_bytes().chunk()).expect("Fail on sidx[audio]");
+
+                                                f.write_all(isobmff::Object {
+                                                    box_type: isobmff::moof::moof::BOX_TYPE,
+                                                    payload: {
+                                                        let mut moof = isobmff::moof::moof::default();
+
+                                                        moof.mfhd.sequence_number = self.sequence_number;
+
+                                                        moof.trafs.push({
+                                                            let mut traf = isobmff::moof::traf::default();
+
+                                                            traf.tfhd.track_id = 1;
+                                                            traf.tfhd.default_sample_duration = Some(384);
+                                                            traf.tfhd.default_sample_size = Some(6772);
+                                                            traf.tfhd.default_sample_flags = Some(0x1010000);
+
+                                                            traf.tfdt = Some({
+                                                                let mut tfdt = isobmff::moof::tfdt::default();
+
+                                                                tfdt.base_media_decode_time = (self.moov.traks[0].mdia.mdhd.timescale * dts / 1000) as u64;
+
+                                                                tfdt
+                                                            });
+
+                                                            traf.truns.push({
+                                                                let mut trun = isobmff::moof::trun::default();
+
+                                                                trun.first_sample_flags = Some(0x2000000);
+                                                                for (size, composition_time_offset) in self.trun_v.drain(..self.trun_v.len()) {
+                                                                    trun.samples.push((None, Some(size), None, Some(composition_time_offset)));
+                                                                }
+
+                                                                trun.data_offset = Some(0);
+
+                                                                trun
+                                                            });
+
+                                                            traf
+                                                        });
+                                                        moof.trafs.push({
+                                                            let mut traf = isobmff::moof::traf::default();
+
+                                                            traf.tfhd.track_id = 2;
+                                                            traf.tfhd.default_sample_duration = Some(1024);
+                                                            traf.tfhd.default_sample_size = Some(6);
+                                                            traf.tfhd.default_sample_flags = Some(0x2000000);
+
+                                                            traf.tfdt = Some({
+                                                                let mut tfdt = isobmff::moof::tfdt::default();
+
+                                                                tfdt.base_media_decode_time = (self.moov.traks[1].mdia.mdhd.timescale * dts / 1000) as u64;
+
+                                                                tfdt
+                                                            });
+
+                                                            traf.truns.push({
+                                                                let mut trun = isobmff::moof::trun::default();
+
+                                                                for size in self.trun_a.drain(..self.trun_a.len()) {
+                                                                    trun.samples.push((None, Some(size), None, None));
+                                                                }
+
+                                                                trun.data_offset = Some(0);
+
+                                                                trun
+                                                            });
+
+                                                            traf
+                                                        });
+
+                                                        let data_offset = 16 + moof.len();
+                                                        moof.trafs[0].truns[0].data_offset = Some(data_offset as u32);
+                                                        moof.trafs[1].truns[0].data_offset = Some((data_offset + self.data_v.len()) as u32);
+
+                                                        moof
+                                                    }.as_bytes(),
+                                                }.as_bytes().chunk()).expect("Fail on moof");
+
+                                                f.write_all(isobmff::Object {
+                                                    box_type: 0x6d646174,
+                                                    payload: {
+                                                        let mut v = self.data_v.split_to(self.data_v.len());
+                                                        v.put(self.data_a.split_to(self.data_a.len()));
+
+                                                        v
+                                                    },
+                                                }.as_bytes().chunk()).expect("Fail on mdat");
+                                            }
+
                                             self.trun_v.push((payload.len() as u32, composition_time as u32));
                                             self.data_v.put(payload.chunk());
 
