@@ -99,8 +99,6 @@ struct Connection {
     f_a: File,
 
     f_playlist: File,
-    pts: u32,
-    prev_pts: u32,
 
     moov: isobmff::moov::moov,
     need_write_init_seg: bool,
@@ -127,8 +125,6 @@ impl Connection {
             f_a: File::create("./dump.aac").unwrap(),
 
             f_playlist: File::create("./prog_index.m3u8").unwrap(),
-            pts: 0,
-            prev_pts: 0,
 
             moov: isobmff::moov::moov::default(),
             need_write_init_seg: true,
@@ -409,7 +405,7 @@ impl Connection {
                                     }
                                 }
                             }
-                            rtmp::message::Message::Video { dts, control, mut payload } => {
+                            rtmp::message::Message::Video { dts: _dts, control, mut payload } => {
                                 let frame = control >> 4;
                                 let codec = control & 0xF;
                                 let (avc_packet_type, cts) = if 7 == codec {
@@ -424,8 +420,6 @@ impl Connection {
                                 } else {
                                     (0xFF, 0)
                                 };
-
-                                self.pts = dts + cts as u32;
 
                                 match codec {
                                     7 => match avc_packet_type {
@@ -577,8 +571,7 @@ impl Connection {
 
         self.sequence_number += 1;
 
-        write!(self.f_playlist, "#EXTINF:{:0.4},\nseg_{}.m4s\n", (self.pts - self.prev_pts) as f32 / 4500., self.sequence_number).unwrap();
-        self.prev_pts = self.pts;
+        write!(self.f_playlist, "#EXTINF:{:0.3},\nseg_{}.m4s\n", (self.moov.traks[0].mdia.mdhd.timescale/self.framerate * (self.trun_v.len() as u32)) as f32 / 1000., self.sequence_number).unwrap();
 
         let mut f = File::create(format!("seg_{}.m4s", self.sequence_number)).unwrap();
 
@@ -600,8 +593,9 @@ impl Connection {
                         let mut trun = isobmff::moof::trun::default();
 
                         trun.first_sample_flags = Some(0x2000000);
+                        let rate = self.moov.traks[0].mdia.mdhd.timescale as f32 / 1000.;
                         for (size, composition_time_offset) in self.trun_v.drain(..self.trun_v.len()) {
-                            trun.samples.push((None, Some(size), None, Some(self.moov.traks[0].mdia.mdhd.timescale * composition_time_offset / 1000)));
+                            trun.samples.push((None, Some(size), None, Some((rate * composition_time_offset as f32) as u32)));
                         }
 
                         trun.data_offset = Some(0);
