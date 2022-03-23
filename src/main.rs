@@ -344,7 +344,7 @@ impl Connection {
                                         let aac_packet_type = payload.get_u8();
                                         match aac_packet_type {
                                             0 => {
-                                                eprintln!("[AAC] esds: AudioSpecificConfig");
+                                                eprintln!("[AAC] AudioSpecificConfig");
                                                 eprintln!("\t{:02x?}", payload.chunk());
 
                                                 self.need_write_init_seg = true;
@@ -375,16 +375,7 @@ impl Connection {
                                                                 _ => unreachable!(),
                                                             } << 15,
                                                         }),
-                                                        ext: isobmff::Object {
-                                                            box_type: isobmff::types::types::esds,
-                                                            payload: {
-                                                                let mut v = isobmff::FullBox::new(0, 0).as_bytes();
-
-                                                                v.put(payload.chunk());
-
-                                                                v
-                                                            }
-                                                        }.as_bytes(),
+                                                        ext: BytesMut::new(),
                                                     }
                                                 );
                                             }
