@@ -806,6 +806,7 @@ impl Connection {
             eprintln!("{:?}({:?})", "deleteStream", stream_id);
         }
 
+        self.flush_segment();
         write!(self.f_playlist, "#EXT-X-ENDLIST\n").unwrap();
     }
 }
