@@ -99,7 +99,8 @@ struct Connection {
     f_a: File,
 
     f_playlist: File,
-    prev_dts: u32,
+    pts: u32,
+    prev_pts: u32,
 
     moov: isobmff::moov::moov,
     need_write_init_seg: bool,
@@ -126,7 +127,8 @@ impl Connection {
             f_a: File::create("./dump.aac").unwrap(),
 
             f_playlist: File::create("./prog_index.m3u8").unwrap(),
-            prev_dts: 0,
+            pts: 0,
+            prev_pts: 0,
 
             moov: isobmff::moov::moov::default(),
             need_write_init_seg: true,
@@ -419,7 +421,7 @@ impl Connection {
                             rtmp::message::Message::Video { dts, control, mut payload } => {
                                 let frame = control >> 4;
                                 let codec = control & 0xF;
-                                let (avc_packet_type, composition_time) = if 7 == codec {
+                                let (avc_packet_type, cts) = if 7 == codec {
                                     let t = payload.get_u8();
                                     let mut s = 0_i32;
                                     if 1 == t {
@@ -431,6 +433,8 @@ impl Connection {
                                 } else {
                                     (0xFF, 0)
                                 };
+
+                                self.pts = dts + cts as u32;
 
                                 match codec {
                                     7 => match avc_packet_type {
@@ -509,12 +513,10 @@ impl Connection {
                                         }
                                         1 => { // AVC NALU
                                             if 1 == frame {
-                                                self.flush_segment(dts);
-
-                                                self.prev_dts = dts;
+                                                self.flush_segment();
                                             }
 
-                                            self.trun_v.push((payload.len() as u32, composition_time as u32));
+                                            self.trun_v.push((payload.len() as u32, cts as u32));
                                             self.data_v.put(payload.chunk());
 
                                             while 0 < payload.len() {
@@ -572,7 +574,7 @@ impl Connection {
         write!(self.f_playlist, "#EXTM3U\n#EXT-X-VERSION:7\n#EXT-X-TARGETDURATION:2\n#EXT-X-MEDIA-SEQUENCE:0\n#EXT-X-PLAYLIST-TYPE:EVENT\n#EXT-X-MAP:URI=\"init.mp4\"\n").unwrap();
     }
 
-    fn flush_segment(&mut self, dts: u32) {
+    fn flush_segment(&mut self) {
         if 0 == self.trun_v.len() {
             return;
         }
@@ -584,7 +586,8 @@ impl Connection {
 
         self.sequence_number += 1;
 
-        write!(self.f_playlist, "#EXTINF:{:0.3},\nseg_{}.m4s\n", (dts - self.prev_dts) as f32 / 1000., self.sequence_number).unwrap();
+        write!(self.f_playlist, "#EXTINF:{:0.4},\nseg_{}.m4s\n", (self.pts - self.prev_pts) as f32 / 4500., self.sequence_number).unwrap();
+        self.prev_pts = self.pts;
 
         let mut f = File::create(format!("seg_{}.m4s", self.sequence_number)).unwrap();
 
