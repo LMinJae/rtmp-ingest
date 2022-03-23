@@ -331,12 +331,11 @@ impl Connection {
                                     }
                                 };
                             }
-                            rtmp::message::Message::Audio { dts, control, mut payload } => {
+                            rtmp::message::Message::Audio { dts: _dts, control, mut payload } => {
                                 let codec = control >> 4;
                                 let rate = (control >> 2) & 3;
                                 let size = (control >> 1) & 1;
                                 let channel = control & 1;
-                                eprintln!("Audio({:2?}): 0x{:02x?}({:?} {:?} {:?} {:?})", dts, control, codec, rate, size, channel);
 
                                 match codec {
                                     10 => {
@@ -428,10 +427,8 @@ impl Connection {
                                             s = s << 8 | (*i as i32);
                                         }
                                     }
-                                    eprintln!("Video({:2?}, {:2?}): 0x{:02x?}({:?} {:?}), {:?}", dts, dts + s as u32, control, frame, codec, t);
                                     (t, s)
                                 } else {
-                                    eprintln!("Video({:2?}, {:2?}): 0x{:02x?}({:?} {:?})", dts, dts, control, frame, codec);
                                     (0xFF, 0)
                                 };
 
