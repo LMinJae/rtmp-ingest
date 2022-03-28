@@ -310,7 +310,7 @@ impl Connection {
                                             trak.tkhd.track_id = 2;
                                             trak.tkhd.alternate_group = 1;
 
-                                            trak.mdia.mdhd.timescale = self.framerate;
+                                            trak.mdia.mdhd.timescale = self.samplerate;
 
                                             trak.mdia.hdlr = isobmff::moov::hdlr::soun("SoundHandler");
 
