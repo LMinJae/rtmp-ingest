@@ -697,26 +697,19 @@ impl Connection {
                                     }
                                 }
                                 rtmp::message::Message::Command { payload } => {
-                                    let cmd = {
-                                        match &payload[0] {
-                                            amf::Value::Amf0Value(amf::amf0::Value::String(str)) => str.as_str(),
+                                    if let amf::Value::Amf0Value(amf::amf0::Value::String(ref cmd)) = payload[0] {
+                                        let transaction_id = &payload[1];
+                                        match cmd.as_str() {
+                                            "connect" =>  self.connect(payload),
+                                            "_checkbw" =>  self._checkbw(payload),
+                                            "releaseStream" => self.releaseStream(payload),
+                                            "FCPublish" => self.FCPublish(payload),
+                                            "createStream" => self.createStream(payload),
+                                            "FCUnpublish" => self.FCUnpublish(payload),
+                                            "deleteStream" => self.deleteStream(payload),
                                             _ => {
-                                                eprintln!("Unexpected {:?}", payload);
-                                                return
+                                                eprintln!("{:?} {:?} {:?}", cmd, transaction_id, payload)
                                             }
-                                        }
-                                    };
-                                    let transaction_id = &payload[1];
-                                    match cmd {
-                                        "connect" =>  self.connect(payload),
-                                        "_checkbw" =>  self._checkbw(payload),
-                                        "releaseStream" => self.releaseStream(payload),
-                                        "FCPublish" => self.FCPublish(payload),
-                                        "createStream" => self.createStream(payload),
-                                        "FCUnpublish" => self.FCUnpublish(payload),
-                                        "deleteStream" => self.deleteStream(payload),
-                                        _ => {
-                                            eprintln!("{:?} {:?} {:?}", cmd, transaction_id, payload)
                                         }
                                     }
                                 }
@@ -725,20 +718,13 @@ impl Connection {
                         } else {
                             match msg {
                                 rtmp::message::Message::Command { payload } => {
-                                    let cmd = {
-                                        match &payload[0] {
-                                            amf::Value::Amf0Value(amf::amf0::Value::String(str)) => str.as_str(),
+                                    if let amf::Value::Amf0Value(amf::amf0::Value::String(ref cmd)) = payload[0] {
+                                        let transaction_id = &payload[1];
+                                        match cmd.as_str() {
+                                            "publish" => self.publish(payload),
                                             _ => {
-                                                eprintln!("Unexpected {:?}", payload);
-                                                return
+                                                eprintln!("{:?} {:?} {:?}", cmd, transaction_id, payload)
                                             }
-                                        }
-                                    };
-                                    let transaction_id = &payload[1];
-                                    match cmd {
-                                        "publish" => self.publish(payload),
-                                        _ => {
-                                            eprintln!("{:?} {:?} {:?}", cmd, transaction_id, payload)
                                         }
                                     }
                                 }
