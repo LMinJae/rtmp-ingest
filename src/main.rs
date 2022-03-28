@@ -98,10 +98,9 @@ struct Connection {
     f_v: File,
     f_a: File,
 
-    audio_sampling_frequency_index: u8,
-
     f_playlist: File,
 
+    samplerate: u32,
     moov: isobmff::moov::moov,
     need_write_init_seg: bool,
     sequence_number: u32,
@@ -126,9 +125,9 @@ impl Connection {
             f_v: File::create("./dump.h264").unwrap(),
             f_a: File::create("./dump.aac").unwrap(),
 
-            audio_sampling_frequency_index: 0xf,
             f_playlist: File::create("./prog_index.m3u8").unwrap(),
 
+            samplerate: 0,
             moov: isobmff::moov::moov::default(),
             need_write_init_seg: true,
             sequence_number: 0,
@@ -273,26 +272,9 @@ impl Connection {
                                         };
                                         eprintln!("{:?} {:?} {:?}", p0, p1, p2);
 
-                                        self.audio_sampling_frequency_index = if let amf::amf0::Value::Number(n) = p2["audiosamplerate"] {
-                                            eprintln!("{}", n);
-                                            match n as u32 {
-                                                96000 => 0x0,
-                                                88200 => 0x1,
-                                                64000 => 0x2,
-                                                48000 => 0x3,
-                                                44100 => 0x4,
-                                                32000 => 0x5,
-                                                24000 => 0x6,
-                                                22050 => 0x7,
-                                                16000 => 0x8,
-                                                12000 => 0x9,
-                                                11025 => 0xa,
-                                                8000 => 0xb,
-                                                7350 => 0xc,
-                                                _ => 0xf
-                                            }
-                                        } else { 0xf };
-                                        eprintln!("{:x}", self.audio_sampling_frequency_index);
+                                        self.samplerate = if let amf::amf0::Value::Number(n) = p2["audiosamplerate"] {
+                                            n as u32
+                                        } else { 0 };
 
                                         self.framerate = if let amf::amf0::Value::Number(n) = p2["framerate"] {
                                             n as u32
@@ -328,7 +310,7 @@ impl Connection {
                                             trak.tkhd.track_id = 2;
                                             trak.tkhd.alternate_group = 1;
 
-                                            trak.mdia.mdhd.timescale = 22050;
+                                            trak.mdia.mdhd.timescale = self.framerate;
 
                                             trak.mdia.hdlr = isobmff::moov::hdlr::soun("SoundHandler");
 
@@ -355,7 +337,7 @@ impl Connection {
                             }
                             rtmp::message::Message::Audio { dts: _dts, control, mut payload } => {
                                 let codec = control >> 4;
-                                let rate = (control >> 2) & 3;
+                                let _rate = (control >> 2) & 3;
                                 let size = (control >> 1) & 1;
                                 let channel = control & 1;
 
@@ -387,13 +369,7 @@ impl Connection {
                                                                 1 => 16,
                                                                 _ => unreachable!(),
                                                             },
-                                                            sample_rate: match rate {
-                                                                0 => 5500,
-                                                                1 => 11000,
-                                                                2 => 22050,
-                                                                3 => 44100,
-                                                                _ => unreachable!(),
-                                                            } << 15,
+                                                            sample_rate: self.samplerate << 15,
                                                         }),
                                                         ext: isobmff::Object {
                                                             box_type: 0x65736473,
@@ -436,11 +412,27 @@ impl Connection {
                                                 self.data_a.put(payload.chunk());
 
                                                 self.f_a.write_u16::<BigEndian>(0xfff1).unwrap();
+                                                let sampling_frequency_index = match self.samplerate {
+                                                    96000 => 0x0,
+                                                    88200 => 0x1,
+                                                    64000 => 0x2,
+                                                    48000 => 0x3,
+                                                    44100 => 0x4,
+                                                    32000 => 0x5,
+                                                    24000 => 0x6,
+                                                    22050 => 0x7,
+                                                    16000 => 0x8,
+                                                    12000 => 0x9,
+                                                    11025 => 0xa,
+                                                    8000 => 0xb,
+                                                    7350 => 0xc,
+                                                    _ => 0xf
+                                                };
                                                 self.f_a.write_u32::<BigEndian>({
                                                     // profile
                                                     let mut v = 0b01;
                                                     // sampling_frequency_index
-                                                    v = (v << 4) | self.audio_sampling_frequency_index as u32;
+                                                    v = (v << 4) | sampling_frequency_index as u32;
                                                     // channel_configuration
                                                     v = (v << 4) | (channel << 1) as u32;
                                                     // aac_frame_length
