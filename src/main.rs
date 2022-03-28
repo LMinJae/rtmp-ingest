@@ -556,7 +556,7 @@ impl Connection {
             payload: self.moov.as_bytes(),
         }.as_bytes().chunk()).expect("Fail moov");
 
-        write!(self.f_playlist, "#EXTM3U\n#EXT-X-VERSION:7\n#EXT-X-TARGETDURATION:2\n#EXT-X-MEDIA-SEQUENCE:0\n#EXT-X-PLAYLIST-TYPE:EVENT\n#EXT-X-MAP:URI=\"init.mp4\"\n").unwrap();
+        write!(self.f_playlist, "#EXTM3U\n#EXT-X-VERSION:7\n#EXT-X-TARGETDURATION:2\n#EXT-X-MEDIA-SEQUENCE:{}\n#EXT-X-PLAYLIST-TYPE:EVENT\n#EXT-X-MAP:URI=\"init.mp4\"\n", self.sequence_number).unwrap();
     }
 
     fn flush_segment(&mut self) {
@@ -569,11 +569,11 @@ impl Connection {
             self.write_init_seg();
         }
 
-        self.sequence_number += 1;
-
         write!(self.f_playlist, "#EXTINF:{:0.3},\nseg_{}.m4s\n", (self.moov.traks[0].mdia.mdhd.timescale/self.framerate * (self.trun_v.len() as u32)) as f32 / 1000., self.sequence_number).unwrap();
 
         let mut f = File::create(format!("seg_{}.m4s", self.sequence_number)).unwrap();
+
+        self.sequence_number += 1;
 
         f.write_all(isobmff::Object {
             box_type: isobmff::moof::moof::BOX_TYPE,
