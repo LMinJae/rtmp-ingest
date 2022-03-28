@@ -568,8 +568,10 @@ impl Connection {
 
             self.write_init_seg();
         }
+        
+        let sample_duration = self.moov.traks[0].mdia.mdhd.timescale/self.framerate;
 
-        write!(self.f_playlist, "#EXTINF:{:0.3},\nseg_{}.m4s\n", (self.moov.traks[0].mdia.mdhd.timescale/self.framerate * (self.trun_v.len() as u32)) as f32 / 1000., self.sequence_number).unwrap();
+        write!(self.f_playlist, "#EXTINF:{:0.3},\nseg_{}.m4s\n", (sample_duration * (self.trun_v.len() as u32)) as f32 / 1000., self.sequence_number).unwrap();
 
         let mut f = File::create(format!("seg_{}.m4s", self.sequence_number)).unwrap();
 
@@ -586,7 +588,7 @@ impl Connection {
                     let mut traf = isobmff::moof::traf::default();
 
                     traf.tfhd.track_id = 1;
-                    traf.tfhd.default_sample_duration = Some(self.moov.traks[0].mdia.mdhd.timescale/self.framerate);
+                    traf.tfhd.default_sample_duration = Some(sample_duration);
                     traf.tfhd.default_sample_flags = Some(0x1010000);
 
                     traf.truns.push({
