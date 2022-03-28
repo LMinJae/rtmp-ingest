@@ -208,369 +208,392 @@ impl Connection {
                     Ok(None) => {
                         break
                     }
-                    Ok(Some(msg)) => {
-                        match msg {
-                            rtmp::message::Message::SetChunkSize { chunk_size } => {
-                                if 1 + chunk_size as usize > buf.capacity() {
-                                    buf.reserve_exact(1 + (chunk_size as usize) - buf.capacity())
-                                }
-                            }
-                            rtmp::message::Message::Command { payload } => {
-                                let cmd = {
-                                    match &payload[0] {
-                                        amf::Value::Amf0Value(amf::amf0::Value::String(str)) => str.as_str(),
-                                        _ => {
-                                            eprintln!("Unexpected {:?}", payload);
-                                            return
-                                        }
-                                    }
-                                };
-                                let transaction_id = &payload[1];
-                                match cmd {
-                                    "connect" =>  self.connect(payload),
-                                    "_checkbw" =>  self._checkbw(payload),
-                                    "releaseStream" => self.releaseStream(payload),
-                                    "FCPublish" => self.FCPublish(payload),
-                                    "createStream" => self.createStream(payload),
-                                    "publish" => self.publish(payload),
-                                    "FCUnpublish" => self.FCUnpublish(payload),
-                                    "deleteStream" => self.deleteStream(payload),
-                                    _ => {
-                                        eprintln!("{:?} {:?} {:?}", cmd, transaction_id, payload)
+                    Ok(Some(rtmp::message::MessageStream{ stream_id, msg })) => {
+                        if 0 == stream_id {
+                            match msg {
+                                rtmp::message::Message::SetChunkSize { chunk_size } => {
+                                    if 1 + chunk_size as usize > buf.capacity() {
+                                        buf.reserve_exact(1 + (chunk_size as usize) - buf.capacity())
                                     }
                                 }
-                            }
-                            rtmp::message::Message::Data { payload } => {
-                                let p0 = {
-                                    match &payload[0] {
-                                        amf::Value::Amf0Value(amf::amf0::Value::String(str)) => str.as_str(),
+                                rtmp::message::Message::Command { payload } => {
+                                    let cmd = {
+                                        match &payload[0] {
+                                            amf::Value::Amf0Value(amf::amf0::Value::String(str)) => str.as_str(),
+                                            _ => {
+                                                eprintln!("Unexpected {:?}", payload);
+                                                return
+                                            }
+                                        }
+                                    };
+                                    let transaction_id = &payload[1];
+                                    match cmd {
+                                        "connect" =>  self.connect(payload),
+                                        "_checkbw" =>  self._checkbw(payload),
+                                        "releaseStream" => self.releaseStream(payload),
+                                        "FCPublish" => self.FCPublish(payload),
+                                        "createStream" => self.createStream(payload),
+                                        "FCUnpublish" => self.FCUnpublish(payload),
+                                        "deleteStream" => self.deleteStream(payload),
                                         _ => {
-                                            eprintln!("Unexpected {:?}", payload);
-                                            return
+                                            eprintln!("{:?} {:?} {:?}", cmd, transaction_id, payload)
                                         }
                                     }
-                                };
-                                match p0 {
-                                    "@setDataFrame" => {
-                                        let p1 = {
-                                            match &payload[1] {
-                                                amf::Value::Amf0Value(amf::amf0::Value::String(str)) => str.as_str(),
-                                                _ => {
-                                                    eprintln!("Unexpected {:?}", payload);
-                                                    return
-                                                }
+                                }
+                                _ => eprintln!("{}: {:?}", stream_id, msg)
+                            }
+                        } else {
+                            match msg {
+                                rtmp::message::Message::Command { payload } => {
+                                    let cmd = {
+                                        match &payload[0] {
+                                            amf::Value::Amf0Value(amf::amf0::Value::String(str)) => str.as_str(),
+                                            _ => {
+                                                eprintln!("Unexpected {:?}", payload);
+                                                return
                                             }
-                                        };
-                                        let p2 = {
-                                            match &payload[2] {
-                                                amf::Value::Amf0Value(amf::amf0::Value::ECMAArray(arr)) => arr,
-                                                _ => {
-                                                    eprintln!("Unexpected {:?}", payload);
-                                                    return
-                                                }
+                                        }
+                                    };
+                                    let transaction_id = &payload[1];
+                                    match cmd {
+                                        "publish" => self.publish(payload),
+                                        _ => {
+                                            eprintln!("{:?} {:?} {:?}", cmd, transaction_id, payload)
+                                        }
+                                    }
+                                }
+                                rtmp::message::Message::Data { payload } => {
+                                    let p0 = {
+                                        match &payload[0] {
+                                            amf::Value::Amf0Value(amf::amf0::Value::String(str)) => str.as_str(),
+                                            _ => {
+                                                eprintln!("Unexpected {:?}", payload);
+                                                return
                                             }
-                                        };
-                                        eprintln!("{:?} {:?} {:?}", p0, p1, p2);
+                                        }
+                                    };
+                                    match p0 {
+                                        "@setDataFrame" => {
+                                            let p1 = {
+                                                match &payload[1] {
+                                                    amf::Value::Amf0Value(amf::amf0::Value::String(str)) => str.as_str(),
+                                                    _ => {
+                                                        eprintln!("Unexpected {:?}", payload);
+                                                        return
+                                                    }
+                                                }
+                                            };
+                                            let p2 = {
+                                                match &payload[2] {
+                                                    amf::Value::Amf0Value(amf::amf0::Value::ECMAArray(arr)) => arr,
+                                                    _ => {
+                                                        eprintln!("Unexpected {:?}", payload);
+                                                        return
+                                                    }
+                                                }
+                                            };
+                                            eprintln!("{:?} {:?} {:?}", p0, p1, p2);
 
-                                        self.samplerate = if let Some(amf::amf0::Value::Number(n)) = p2.get("audiosamplerate") {
-                                            *n as u32
-                                        } else { 0 };
-
-                                        self.framerate = if let Some(amf::amf0::Value::Number(n)) = p2.get("framerate") {
-                                            *n as u32
-                                        } else { 30 };
-
-                                        self.moov.mvhd.timescale = 1000;
-
-                                        self.moov.traks.push({
-                                            let mut trak = isobmff::moov::trak::default();
-
-                                            trak.tkhd.track_id = 1;
-                                            trak.tkhd.alternate_group = 0;
-                                            trak.tkhd.volume = 0;
-                                            trak.tkhd.width = if let Some(amf::amf0::Value::Number(n)) = p2.get("width") {
-                                                (*n as u32) << 16
+                                            self.samplerate = if let Some(amf::amf0::Value::Number(n)) = p2.get("audiosamplerate") {
+                                                *n as u32
                                             } else { 0 };
-                                            trak.tkhd.height = if let Some(amf::amf0::Value::Number(n)) = p2.get("height") {
-                                                (*n as u32) << 16
-                                            } else { 0 };
 
-                                            trak.mdia.mdhd.timescale = 1000;
+                                            self.framerate = if let Some(amf::amf0::Value::Number(n)) = p2.get("framerate") {
+                                                *n as u32
+                                            } else { 30 };
 
-                                            trak.mdia.hdlr = isobmff::moov::hdlr::vide("VideoHandler");
+                                            self.moov.mvhd.timescale = 1000;
 
-                                            trak.mdia.minf.mhd = isobmff::moov::MediaInformationHeader::vmhd(isobmff::moov::vmhd::new(0,0,0,0));
+                                            self.moov.traks.push({
+                                                let mut trak = isobmff::moov::trak::default();
 
-                                            trak
-                                        });
+                                                trak.tkhd.track_id = 1;
+                                                trak.tkhd.alternate_group = 0;
+                                                trak.tkhd.volume = 0;
+                                                trak.tkhd.width = if let Some(amf::amf0::Value::Number(n)) = p2.get("width") {
+                                                    (*n as u32) << 16
+                                                } else { 0 };
+                                                trak.tkhd.height = if let Some(amf::amf0::Value::Number(n)) = p2.get("height") {
+                                                    (*n as u32) << 16
+                                                } else { 0 };
 
-                                        self.moov.traks.push({
-                                            let mut trak = isobmff::moov::trak::default();
+                                                trak.mdia.mdhd.timescale = 1000;
 
-                                            trak.tkhd.track_id = 2;
-                                            trak.tkhd.alternate_group = 1;
+                                                trak.mdia.hdlr = isobmff::moov::hdlr::vide("VideoHandler");
 
-                                            trak.mdia.mdhd.timescale = self.samplerate;
+                                                trak.mdia.minf.mhd = isobmff::moov::MediaInformationHeader::vmhd(isobmff::moov::vmhd::new(0, 0, 0, 0));
 
-                                            trak.mdia.hdlr = isobmff::moov::hdlr::soun("SoundHandler");
-
-                                            trak.mdia.minf.mhd = isobmff::moov::MediaInformationHeader::smhd(isobmff::moov::smhd::new(0));
-
-                                            trak
-                                        });
-
-                                        for trak in self.moov.traks.iter_mut() {
-                                            self.moov.mvex.trexs.push({
-                                                let mut trex = isobmff::moov::trex::default();
-
-                                                trex.track_id = trak.tkhd.track_id;
-                                                trex.default_sample_description_index = 1;
-
-                                                trex
+                                                trak
                                             });
+
+                                            self.moov.traks.push({
+                                                let mut trak = isobmff::moov::trak::default();
+
+                                                trak.tkhd.track_id = 2;
+                                                trak.tkhd.alternate_group = 1;
+
+                                                trak.mdia.mdhd.timescale = self.samplerate;
+
+                                                trak.mdia.hdlr = isobmff::moov::hdlr::soun("SoundHandler");
+
+                                                trak.mdia.minf.mhd = isobmff::moov::MediaInformationHeader::smhd(isobmff::moov::smhd::new(0));
+
+                                                trak
+                                            });
+
+                                            for trak in self.moov.traks.iter_mut() {
+                                                self.moov.mvex.trexs.push({
+                                                    let mut trex = isobmff::moov::trex::default();
+
+                                                    trex.track_id = trak.tkhd.track_id;
+                                                    trex.default_sample_description_index = 1;
+
+                                                    trex
+                                                });
+                                            }
+                                        }
+                                        _ => {
+                                            eprintln!("Unexpected {}: {:?}", p0, payload);
+                                        }
+                                    };
+                                }
+                                rtmp::message::Message::Audio { dts: _dts, control, mut payload } => {
+                                    let codec = control >> 4;
+                                    let _rate = (control >> 2) & 3;
+                                    let size = (control >> 1) & 1;
+                                    let channel = control & 1;
+
+                                    match codec {
+                                        10 => {
+                                            let aac_packet_type = payload.get_u8();
+                                            match aac_packet_type {
+                                                0 => {
+                                                    eprintln!("[AAC] AudioSpecificConfig");
+                                                    eprintln!("\t{:02x?}", payload.chunk());
+
+                                                    self.need_write_init_seg = true;
+
+                                                    self.moov.traks[1].mdia.minf.stbl.stsd.entries.push(
+                                                        isobmff::moov::SampleEntry::mp4a {
+                                                            base: Box::new(isobmff::moov::SampleEntry::Audio {
+                                                                base: Box::new(isobmff::moov::SampleEntry::Base {
+                                                                    handler_type: isobmff::types::types::mp4a,
+                                                                    data_reference_index: 1,
+                                                                }),
+
+                                                                channel_count: match channel {
+                                                                    0 => 1,
+                                                                    1 => 2,
+                                                                    _ => unreachable!(),
+                                                                },
+                                                                sample_size: match size {
+                                                                    0 => 8,
+                                                                    1 => 16,
+                                                                    _ => unreachable!(),
+                                                                },
+                                                                sample_rate: self.samplerate << 15,
+                                                            }),
+                                                            ext: isobmff::Object {
+                                                                box_type: 0x65736473,
+                                                                payload: {
+                                                                    let mut esds = isobmff::FullBox::new(0, 0).as_bytes();
+                                                                    { // ES_Descriptor
+                                                                        esds.put_u8(0x03);
+                                                                        esds.put(&[0x80, 0x80, 0x80, 0x20 + payload.len() as u8][..]);
+                                                                        esds.put_u16(2);    // ES_ID
+                                                                        esds.put_u8(0x00);
+                                                                        { // DecoderConfigDescriptor
+                                                                            esds.put_u8(0x04);
+                                                                            esds.put(&[0x80, 0x80, 0x80, 0x12 + payload.len() as u8][..]);
+                                                                            esds.put_u8(0x40);  // Object Type Indicator: Audio ISO/IEC 14496-3
+                                                                            esds.put_u8(0x15);  // Stream Type: AudioStream
+                                                                            esds.put(&[0x00, 0x00, 0x00][..]);  // bufferSizeDB
+                                                                            esds.put_u32(4433); // maxBitrate
+                                                                            esds.put_u32(4433); // avgBitrate
+                                                                            { // DecoderSpecificInfo
+                                                                                esds.put_u8(0x05);
+                                                                                esds.put(&[0x80, 0x80, 0x80, payload.len() as u8][..]);
+                                                                                esds.put(payload.chunk());
+                                                                            }
+                                                                        }
+                                                                        { // SLConfigDescriptor
+                                                                            esds.put_u8(0x06);
+                                                                            esds.put(&[0x80, 0x80, 0x80, 0x01][..]);
+                                                                            esds.put_u8(0x02);
+                                                                        }
+                                                                    }
+
+                                                                    esds
+                                                                }
+                                                            }.as_bytes(),
+                                                        }
+                                                    );
+                                                }
+                                                1 => {
+                                                    self.trun_a.push(payload.len() as u32);
+                                                    self.data_a.put(payload.chunk());
+
+                                                    self.f_a.write_u16::<BigEndian>(0xfff1).unwrap();
+                                                    let sampling_frequency_index = match self.samplerate {
+                                                        96000 => 0x0,
+                                                        88200 => 0x1,
+                                                        64000 => 0x2,
+                                                        48000 => 0x3,
+                                                        44100 => 0x4,
+                                                        32000 => 0x5,
+                                                        24000 => 0x6,
+                                                        22050 => 0x7,
+                                                        16000 => 0x8,
+                                                        12000 => 0x9,
+                                                        11025 => 0xa,
+                                                        8000 => 0xb,
+                                                        7350 => 0xc,
+                                                        _ => 0xf
+                                                    };
+                                                    self.f_a.write_u32::<BigEndian>({
+                                                        // profile
+                                                        let mut v = 0b01;
+                                                        // sampling_frequency_index
+                                                        v = (v << 4) | sampling_frequency_index as u32;
+                                                        // channel_configuration
+                                                        v = (v << 4) | (channel << 1) as u32;
+                                                        // aac_frame_length
+                                                        v = (v << 17) | payload.len() as u32;
+                                                        v = (v << 5) + 0xff;
+
+                                                        v
+                                                    } as u32).unwrap();
+                                                    self.f_a.write_u8(0xfc).unwrap();
+                                                    self.f_a.write_all(payload.chunk()).unwrap();
+                                                }
+                                                _ => unreachable!()
+                                            }
+                                        }
+                                        _ => {
+                                            eprintln!("Audio codec [{:?}] is not supported", codec);
+                                            eprintln!("{:02x?}", payload.chunk());
                                         }
                                     }
-                                    _ => {
-                                        eprintln!("Unexpected {:?}", payload);
-                                    }
-                                };
-                            }
-                            rtmp::message::Message::Audio { dts: _dts, control, mut payload } => {
-                                let codec = control >> 4;
-                                let _rate = (control >> 2) & 3;
-                                let size = (control >> 1) & 1;
-                                let channel = control & 1;
+                                }
+                                rtmp::message::Message::Video { dts: _dts, control, mut payload } => {
+                                    let frame = control >> 4;
+                                    let codec = control & 0xF;
+                                    let (avc_packet_type, cts) = if 7 == codec {
+                                        let t = payload.get_u8();
+                                        let mut s = 0_i32;
+                                        if 1 == t {
+                                            for i in payload.split_to(3).iter() {
+                                                s = s << 8 | (*i as i32);
+                                            }
+                                        }
+                                        (t, s)
+                                    } else {
+                                        (0xFF, 0)
+                                    };
 
-                                match codec {
-                                    10 => {
-                                        let aac_packet_type = payload.get_u8();
-                                        match aac_packet_type {
-                                            0 => {
-                                                eprintln!("[AAC] AudioSpecificConfig");
-                                                eprintln!("\t{:02x?}", payload.chunk());
+                                    match codec {
+                                        7 => match avc_packet_type {
+                                            0 => { // AVC sequence header
+                                                eprintln!("[AVC] avcC: AVCDecoderConfigurationRecord");
+                                                {
+                                                    eprintln!("{:02?}", payload.chunk());
+                                                }
 
                                                 self.need_write_init_seg = true;
 
-                                                self.moov.traks[1].mdia.minf.stbl.stsd.entries.push(
-                                                    isobmff::moov::SampleEntry::mp4a {
-                                                        base: Box::new(isobmff::moov::SampleEntry::Audio {
+                                                let width = (self.moov.traks[0].tkhd.width >> 16) as u16;
+                                                let height = (self.moov.traks[0].tkhd.height >> 16) as u16;
+                                                self.moov.traks[0].mdia.minf.stbl.stsd.entries.push(
+                                                    isobmff::moov::SampleEntry::avc1 {
+                                                        base: Box::new(isobmff::moov::SampleEntry::Visual {
                                                             base: Box::new(isobmff::moov::SampleEntry::Base {
-                                                                handler_type: isobmff::types::types::mp4a,
+                                                                handler_type: isobmff::types::types::avc1,
                                                                 data_reference_index: 1,
                                                             }),
 
-                                                            channel_count: match channel {
-                                                                0 => 1,
-                                                                1 => 2,
-                                                                _ => unreachable!(),
-                                                            },
-                                                            sample_size: match size {
-                                                                0 => 8,
-                                                                1 => 16,
-                                                                _ => unreachable!(),
-                                                            },
-                                                            sample_rate: self.samplerate << 15,
+                                                            width,
+                                                            height,
+                                                            horiz_resolution: 0x00480000,
+                                                            vert_resolution: 0x00480000,
+                                                            frame_count: 1,
+                                                            compressor_name: "".to_owned(),
+                                                            depth: 24,
                                                         }),
-                                                        ext: isobmff::Object {
-                                                            box_type: 0x65736473,
-                                                            payload: {
-                                                                let mut esds = isobmff::FullBox::new(0, 0).as_bytes();
-                                                                { // ES_Descriptor
-                                                                    esds.put_u8(0x03);
-                                                                    esds.put(&[0x80, 0x80, 0x80, 0x20 + payload.len() as u8][..]);
-                                                                    esds.put_u16(2);    // ES_ID
-                                                                    esds.put_u8(0x00);
-                                                                    { // DecoderConfigDescriptor
-                                                                        esds.put_u8(0x04);
-                                                                        esds.put(&[0x80, 0x80, 0x80, 0x12 + payload.len() as u8][..]);
-                                                                        esds.put_u8(0x40);  // Object Type Indicator: Audio ISO/IEC 14496-3
-                                                                        esds.put_u8(0x15);  // Stream Type: AudioStream
-                                                                        esds.put(&[0x00, 0x00, 0x00][..]);  // bufferSizeDB
-                                                                        esds.put_u32(4433); // maxBitrate
-                                                                        esds.put_u32(4433); // avgBitrate
-                                                                        { // DecoderSpecificInfo
-                                                                            esds.put_u8(0x05);
-                                                                            esds.put(&[0x80, 0x80, 0x80, payload.len() as u8][..]);
-                                                                            esds.put(payload.chunk());
-                                                                        }
-                                                                    }
-                                                                    { // SLConfigDescriptor
-                                                                        esds.put_u8(0x06);
-                                                                        esds.put(&[0x80, 0x80, 0x80, 0x01][..]);
-                                                                        esds.put_u8(0x02);
-                                                                    }
-                                                                }
+                                                        ext: {
+                                                            let mut v = isobmff::Object {
+                                                                box_type: isobmff::types::types::avcC,
+                                                                payload: {
+                                                                    let mut v = payload.clone();
 
-                                                                esds
-                                                            }
-                                                        }.as_bytes(),
+                                                                    let _ = v.split_to(3);
+
+                                                                    v
+                                                                },
+                                                            }.as_bytes();
+
+                                                            v.put(isobmff::Object {
+                                                                box_type: isobmff::types::types::colr,
+                                                                payload: {
+                                                                    let mut colr = BytesMut::with_capacity(11);
+
+                                                                    colr.put_u32(0x6e636c78);
+                                                                    colr.put_u16(6);
+                                                                    colr.put_u16(1);
+                                                                    colr.put_u16(6);
+                                                                    colr.put_u8(0);
+
+                                                                    colr
+                                                                },
+                                                            }.as_bytes());
+
+                                                            v
+                                                        }
                                                     }
                                                 );
+
+                                                let _ = payload.split_to(9);
+                                                // sps
+                                                {
+                                                    let len = payload.get_u16();
+                                                    self.f_v.write_u32::<BigEndian>(1).unwrap();
+                                                    self.f_v.write_all(payload.split_to(len as usize).chunk()).unwrap();
+                                                }
+                                                let _ = payload.split_to(1);
+                                                // pps
+                                                {
+                                                    let len = payload.get_u16();
+                                                    self.f_v.write_u32::<BigEndian>(1).unwrap();
+                                                    self.f_v.write_all(payload.split_to(len as usize).chunk()).unwrap();
+                                                }
                                             }
-                                            1 => {
-                                                self.trun_a.push(payload.len() as u32);
-                                                self.data_a.put(payload.chunk());
+                                            1 => { // AVC NALU
+                                                if 1 == frame {
+                                                    self.flush_segment();
+                                                }
 
-                                                self.f_a.write_u16::<BigEndian>(0xfff1).unwrap();
-                                                let sampling_frequency_index = match self.samplerate {
-                                                    96000 => 0x0,
-                                                    88200 => 0x1,
-                                                    64000 => 0x2,
-                                                    48000 => 0x3,
-                                                    44100 => 0x4,
-                                                    32000 => 0x5,
-                                                    24000 => 0x6,
-                                                    22050 => 0x7,
-                                                    16000 => 0x8,
-                                                    12000 => 0x9,
-                                                    11025 => 0xa,
-                                                    8000 => 0xb,
-                                                    7350 => 0xc,
-                                                    _ => 0xf
-                                                };
-                                                self.f_a.write_u32::<BigEndian>({
-                                                    // profile
-                                                    let mut v = 0b01;
-                                                    // sampling_frequency_index
-                                                    v = (v << 4) | sampling_frequency_index as u32;
-                                                    // channel_configuration
-                                                    v = (v << 4) | (channel << 1) as u32;
-                                                    // aac_frame_length
-                                                    v = (v << 17) | payload.len() as u32;
-                                                    v = (v << 5) + 0xff;
+                                                self.trun_v.push((payload.len() as u32, cts as u32));
+                                                self.data_v.put(payload.chunk());
 
-                                                    v
-                                                } as u32).unwrap();
-                                                self.f_a.write_u8(0xfc).unwrap();
-                                                self.f_a.write_all(payload.chunk()).unwrap();
+                                                while 0 < payload.len() {
+                                                    let len = payload.get_u32();
+                                                    self.f_v.write_u32::<BigEndian>(1).unwrap();
+                                                    self.f_v.write_all(payload.split_to(len as usize).chunk()).unwrap();
+                                                }
+                                            }
+                                            2 => { // AVC end of sequence
+                                                // Empty
                                             }
                                             _ => unreachable!()
                                         }
-                                    }
-                                    _ => {
-                                        eprintln!("Audio codec [{:?}] is not supported", codec);
-                                        eprintln!("{:02x?}", payload.chunk());
+                                        _ => {
+                                            eprintln!("Video codec [{:?}] is not supported", codec);
+                                            eprintln!("{:02x?}", payload.chunk());
+                                        }
                                     }
                                 }
-                            }
-                            rtmp::message::Message::Video { dts: _dts, control, mut payload } => {
-                                let frame = control >> 4;
-                                let codec = control & 0xF;
-                                let (avc_packet_type, cts) = if 7 == codec {
-                                    let t = payload.get_u8();
-                                    let mut s = 0_i32;
-                                    if 1 == t {
-                                        for i in payload.split_to(3).iter() {
-                                            s = s << 8 | (*i as i32);
-                                        }
-                                    }
-                                    (t, s)
-                                } else {
-                                    (0xFF, 0)
-                                };
-
-                                match codec {
-                                    7 => match avc_packet_type {
-                                        0 => { // AVC sequence header
-                                            eprintln!("[AVC] avcC: AVCDecoderConfigurationRecord");
-                                            {
-                                                eprintln!("{:02?}", payload.chunk());
-                                            }
-
-                                            self.need_write_init_seg = true;
-
-                                            let width = (self.moov.traks[0].tkhd.width >> 16) as u16;
-                                            let height = (self.moov.traks[0].tkhd.height >> 16) as u16;
-                                            self.moov.traks[0].mdia.minf.stbl.stsd.entries.push(
-                                                isobmff::moov::SampleEntry::avc1 {
-                                                    base: Box::new(isobmff::moov::SampleEntry::Visual {
-                                                        base: Box::new(isobmff::moov::SampleEntry::Base {
-                                                            handler_type: isobmff::types::types::avc1,
-                                                            data_reference_index: 1,
-                                                        }),
-
-                                                        width,
-                                                        height,
-                                                        horiz_resolution: 0x00480000,
-                                                        vert_resolution: 0x00480000,
-                                                        frame_count: 1,
-                                                        compressor_name: "".to_owned(),
-                                                        depth: 24,
-                                                    }),
-                                                    ext: {
-                                                        let mut v = isobmff::Object {
-                                                            box_type: isobmff::types::types::avcC,
-                                                            payload: {
-                                                                let mut v = payload.clone();
-
-                                                                let _ = v.split_to(3);
-
-                                                                v
-                                                            },
-                                                        }.as_bytes();
-
-                                                        v.put(isobmff::Object {
-                                                            box_type: isobmff::types::types::colr,
-                                                            payload: {
-                                                                let mut colr = BytesMut::with_capacity(11);
-
-                                                                colr.put_u32(0x6e636c78);
-                                                                colr.put_u16(6);
-                                                                colr.put_u16(1);
-                                                                colr.put_u16(6);
-                                                                colr.put_u8(0);
-
-                                                                colr
-                                                            },
-                                                        }.as_bytes());
-
-                                                        v
-                                                    }
-                                                }
-                                            );
-
-                                            let _ = payload.split_to(9);
-                                            // sps
-                                            {
-                                                let len = payload.get_u16();
-                                                self.f_v.write_u32::<BigEndian>(1).unwrap();
-                                                self.f_v.write_all(payload.split_to(len as usize).chunk()).unwrap();
-                                            }
-                                            let _ = payload.split_to(1);
-                                            // pps
-                                            {
-                                                let len = payload.get_u16();
-                                                self.f_v.write_u32::<BigEndian>(1).unwrap();
-                                                self.f_v.write_all(payload.split_to(len as usize).chunk()).unwrap();
-                                            }
-                                        }
-                                        1 => { // AVC NALU
-                                            if 1 == frame {
-                                                self.flush_segment();
-                                            }
-
-                                            self.trun_v.push((payload.len() as u32, cts as u32));
-                                            self.data_v.put(payload.chunk());
-
-                                            while 0 < payload.len() {
-                                                let len = payload.get_u32();
-                                                self.f_v.write_u32::<BigEndian>(1).unwrap();
-                                                self.f_v.write_all(payload.split_to(len as usize).chunk()).unwrap();
-                                            }
-                                        }
-                                        2 => { // AVC end of sequence
-                                            // Empty
-                                        }
-                                        _ => unreachable!()
-                                    }
-                                    _ => {
-                                        eprintln!("Video codec [{:?}] is not supported", codec);
-                                        eprintln!("{:02x?}", payload.chunk());
-                                    }
+                                _ => {
+                                    eprintln!("{}: {:?}", stream_id, msg)
                                 }
-                            }
-                            _ => {
-                                eprintln!("{:?}", msg)
                             }
                         }
                     }
