@@ -757,13 +757,14 @@ impl Connection {
             } else { "".to_owned() };
             eprintln!("{:?}({:?})", "connect", obj["app"]);
 
+            const FMS_VERSION: &str = "3,5,3,824";
             self.ctx.push(3, rtmp::message::Message::Command { payload: amf::Array::<amf::Value>::from([
                 amf::Value::Amf0Value(amf::amf0::Value::String("_result".to_string())),
                 transaction_id.clone(),
                 amf::Value::Amf0Value(amf::amf0::Value::Object(amf::Object {
                     class_name: "".to_string(),
                     property: amf::Property::from([
-                        ("fmsVer".to_string(), amf::amf0::Value::String("FMS/3,5,3,824".to_string())),
+                        ("fmsVer".to_string(), amf::amf0::Value::String(format!("FMS/{}", FMS_VERSION).to_string())),
                         ("capabilities".to_string(), amf::amf0::Value::Number(127.)),
                         ("mode".to_string(), amf::amf0::Value::Number(1.)),
                     ])
@@ -776,7 +777,7 @@ impl Connection {
                         ("description".to_string(), amf::amf0::Value::String("Connection succeeded.".to_string())),
                         ("objectEncoding".to_string(), amf::amf0::Value::Number(0.)),
                         ("data".to_string(), amf::amf0::Value::ECMAArray(amf::Property::from([
-                            ("version".to_string(), amf::amf0::Value::String("3,5,3,824".to_string())),
+                            ("version".to_string(), amf::amf0::Value::String(FMS_VERSION.to_string())),
                         ]))),
                     ])
                 })),
