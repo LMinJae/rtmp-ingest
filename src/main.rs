@@ -4,6 +4,7 @@ use std::net::{TcpListener, TcpStream};
 use std::time::SystemTime;
 use bytes::{Buf, BufMut, BytesMut};
 use byteorder::{BigEndian, WriteBytesExt};
+use chrono::prelude::*;
 
 use rtmp;
 use isobmff::IO;
@@ -512,7 +513,7 @@ impl MediaStream {
 
         let sample_duration = self.moov.traks[0].mdia.mdhd.timescale/self.framerate;
 
-        write!(self.f_playlist, "#EXTINF:{:0.3},\nseg_{}.m4s\n", (sample_duration * (self.trun_v.len() as u32)) as f32 / 1000., self.sequence_number).unwrap();
+        write!(self.f_playlist, "#EXT-X-PROGRAM-DATE-TIME:{:}\n#EXTINF:{:0.3},\nseg_{}.m4s\n", Local::now().format("%Y-%m-%dT%H:%M:%S%.f%:z"), (sample_duration * (self.trun_v.len() as u32)) as f32 / 1000., self.sequence_number).unwrap();
 
         let mut f = File::create(format!("./{}/seg_{}.m4s", self.key, self.sequence_number)).unwrap();
 

@@ -11,3 +11,4 @@ rtmp = { git = "https://github.com/LMinJae/rtmp-rs" }
 isobmff = { git = "https://github.com/LMinJae/isobmff-rs" }
 bytes = "1.1.0"
 byteorder = "1"
+chrono = "0.4"
