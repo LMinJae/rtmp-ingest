@@ -115,13 +115,18 @@ impl Drop for MediaStream {
 
 impl MediaStream {
     pub fn new(key: String) -> Self {
+        std::fs::create_dir_all(
+            std::path::Path::new(
+                format!("./{}/", key.to_owned()).as_str()
+            )).unwrap();
+
         Self {
             key: key.to_owned(),
 
-            f_v: File::create("./dump.h264").unwrap(),
-            f_a: File::create("./dump.aac").unwrap(),
+            f_v: File::create(format!("./{}/dump.h264", key.to_owned())).unwrap(),
+            f_a: File::create(format!("./{}/dump.aac", key.to_owned())).unwrap(),
 
-            f_playlist: File::create("./prog_index.m3u8").unwrap(),
+            f_playlist: File::create(format!("./{}/prog_index.m3u8", key.to_owned())).unwrap(),
 
             samplerate: 0,
             moov: isobmff::moov::moov::default(),
@@ -474,7 +479,7 @@ impl MediaStream {
     }
 
     fn write_init_seg(&mut self) {
-        let mut f = File::create("init.mp4").unwrap();
+        let mut f = File::create(format!("./{}/init.mp4", self.key)).unwrap();
         f.write_all(isobmff::Object {
             box_type: isobmff::ftyp::ftyp::BOX_TYPE,
             payload: isobmff::ftyp::ftyp {
@@ -509,7 +514,7 @@ impl MediaStream {
 
         write!(self.f_playlist, "#EXTINF:{:0.3},\nseg_{}.m4s\n", (sample_duration * (self.trun_v.len() as u32)) as f32 / 1000., self.sequence_number).unwrap();
 
-        let mut f = File::create(format!("seg_{}.m4s", self.sequence_number)).unwrap();
+        let mut f = File::create(format!("./{}/seg_{}.m4s", self.key, self.sequence_number)).unwrap();
 
         self.sequence_number += 1;
 
