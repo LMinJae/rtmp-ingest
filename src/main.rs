@@ -4,6 +4,7 @@ use std::net::{TcpListener, TcpStream};
 use std::time::SystemTime;
 use bytes::{Buf, BufMut, BytesMut};
 use byteorder::{BigEndian, WriteBytesExt};
+use log::{debug, error, info, warn};
 use chrono::prelude::*;
 
 use rtmp;
@@ -149,7 +150,7 @@ impl MediaStream {
                     match &payload[0] {
                         amf::Value::Amf0Value(amf::amf0::Value::String(str)) => str.as_str(),
                         _ => {
-                            eprintln!("Unexpected {:?}", payload);
+                            error!("Unexpected {:?}", payload);
                             return
                         }
                     }
@@ -160,7 +161,7 @@ impl MediaStream {
                             match &payload[1] {
                                 amf::Value::Amf0Value(amf::amf0::Value::String(str)) => str.as_str(),
                                 _ => {
-                                    eprintln!("Unexpected {:?}", payload);
+                                    error!("Unexpected {:?}", payload);
                                     return
                                 }
                             }
@@ -169,12 +170,12 @@ impl MediaStream {
                             match &payload[2] {
                                 amf::Value::Amf0Value(amf::amf0::Value::ECMAArray(arr)) => arr,
                                 _ => {
-                                    eprintln!("Unexpected {:?}", payload);
+                                    error!("Unexpected {:?}", payload);
                                     return
                                 }
                             }
                         };
-                        eprintln!("{:?} {:?} {:?}", p0, p1, p2);
+                        info!("{:?} {:?} {:?}", p0, p1, p2);
 
                         self.samplerate = if let Some(amf::amf0::Value::Number(n)) = p2.get("audiosamplerate") {
                             *n as u32
@@ -235,7 +236,7 @@ impl MediaStream {
                         }
                     }
                     _ => {
-                        eprintln!("Unexpected {}: {:?}", p0, payload);
+                        error!("Unexpected {}: {:?}", p0, payload);
                     }
                 };
             }
@@ -250,8 +251,7 @@ impl MediaStream {
                         let aac_packet_type = payload.get_u8();
                         match aac_packet_type {
                             0 => {
-                                eprintln!("[AAC] AudioSpecificConfig");
-                                eprintln!("\t{:02x?}", payload.chunk());
+                                debug!("[AAC] AudioSpecificConfig\n\t{:02x?}", payload.chunk());
 
                                 self.need_write_init_seg = true;
 
@@ -352,8 +352,7 @@ impl MediaStream {
                         }
                     }
                     _ => {
-                        eprintln!("Audio codec [{:?}] is not supported", codec);
-                        eprintln!("{:02x?}", payload.chunk());
+                        warn!("Audio codec [{:?}] is not supported\n{:02x?}", codec, payload.chunk());
                     }
                 }
             }
@@ -376,10 +375,7 @@ impl MediaStream {
                 match codec {
                     7 => match avc_packet_type {
                         0 => { // AVC sequence header
-                            eprintln!("[AVC] avcC: AVCDecoderConfigurationRecord");
-                            {
-                                eprintln!("{:02?}", payload.chunk());
-                            }
+                            debug!("[AVC] avcC: AVCDecoderConfigurationRecord\n{:02?}", payload.chunk());
 
                             self.need_write_init_seg = true;
 
@@ -468,13 +464,12 @@ impl MediaStream {
                         _ => unreachable!()
                     }
                     _ => {
-                        eprintln!("Video codec [{:?}] is not supported", codec);
-                        eprintln!("{:02x?}", payload.chunk());
+                        warn!("Video codec [{:?}] is not supported\n{:02x?}", codec, payload.chunk());
                     }
                 }
             }
             _ => {
-                eprintln!("{:?}", msg)
+                error!("{:?}", msg)
             }
         }
     }
@@ -626,7 +621,7 @@ impl Connection {
     }
 
     pub fn handshaking(&mut self) {
-        println!("Handshake Begin");
+        debug!("Handshake Begin");
 
         let mut ctx = rtmp::handshake::Handshake::new();
 
@@ -645,7 +640,7 @@ impl Connection {
                 },
                 Err(rtmp::handshake::HandshakeError::Done) => break,
                 Err(e) => {
-                    eprintln!("Error while handshaking: {:?}", e);
+                    error!("Error while handshaking: {:?}", e);
                     return
                 }
             }
@@ -653,7 +648,7 @@ impl Connection {
             unsafe { buf.set_len(buf.capacity()) };
         }
 
-        println!("Handshake Done");
+        debug!("Handshake Done");
     }
 
     fn flush(&mut self) {
@@ -708,12 +703,12 @@ impl Connection {
                                             "FCUnpublish" => self.FCUnpublish(payload),
                                             "deleteStream" => self.deleteStream(payload),
                                             _ => {
-                                                eprintln!("{:?} {:?} {:?}", cmd, transaction_id, payload)
+                                                error!("{:?} {:?} {:?}", cmd, transaction_id, payload)
                                             }
                                         }
                                     }
                                 }
-                                _ => eprintln!("{}: {:?}", stream_id, msg)
+                                _ => error!("{}: {:?}", stream_id, msg)
                             }
                         } else {
                             match msg {
@@ -723,7 +718,7 @@ impl Connection {
                                         match cmd.as_str() {
                                             "publish" => self.publish(payload),
                                             _ => {
-                                                eprintln!("{:?} {:?} {:?}", cmd, transaction_id, payload)
+                                                error!("{:?} {:?} {:?}", cmd, transaction_id, payload)
                                             }
                                         }
                                     }
@@ -733,7 +728,7 @@ impl Connection {
                         }
                     }
                     Err(e) => {
-                        eprintln!("Error while chunk processing: {:?}", e);
+                        error!("Error while chunk processing: {:?}", e);
                         return
                     }
                 }
@@ -755,7 +750,7 @@ impl Connection {
             self.app = if let amf::amf0::Value::String(str) = obj["app"].clone() {
                 str
             } else { "".to_owned() };
-            eprintln!("{:?}({:?})", "connect", obj["app"]);
+            debug!("{:?}({:?})", "connect", obj["app"]);
 
             const FMS_VERSION: &str = "3,5,3,824";
             self.ctx.push(3, rtmp::message::Message::Command { payload: amf::Array::<amf::Value>::from([
@@ -809,7 +804,7 @@ impl Connection {
             match prev.elapsed() {
                 Ok(elapsed) => {
                     let secs = elapsed.as_secs_f64();
-                    eprintln!("[Estimated BW] RTT: {:?}s In/Out: {:.4?}/{:.4?} KB/S", secs, (self.ctx.get_bytes_in() - self.prev_bytes_in) as f64 / 1024. / secs, self.bytes_out as f64 / 1024. / secs);
+                    debug!("[Estimated BW] RTT: {:?}s In/Out: {:.4?}/{:.4?} KB/S", secs, (self.ctx.get_bytes_in() - self.prev_bytes_in) as f64 / 1024. / secs, self.bytes_out as f64 / 1024. / secs);
                 }
                 _ => {}
             }
@@ -820,14 +815,14 @@ impl Connection {
     #[allow(non_snake_case)]
     fn releaseStream(&mut self, packet: amf::Array<amf::Value>) {
         if let amf::Value::Amf0Value(amf::amf0::Value::String(stream_key)) = &packet[3] {
-            eprintln!("{:?}({:?})", "releaseStream", stream_key);
+            debug!("{:?}({:?})", "releaseStream", stream_key);
         }
     }
 
     #[allow(non_snake_case)]
     fn FCPublish(&mut self, packet: amf::Array<amf::Value>) {
         if let amf::Value::Amf0Value(amf::amf0::Value::String(stream_key)) = &packet[3] {
-            eprintln!("{:?}({:?})", "FCPublish", stream_key);
+            debug!("{:?}({:?})", "FCPublish", stream_key);
         }
     }
 
@@ -848,7 +843,7 @@ impl Connection {
             match &packet[3] {
                 amf::Value::Amf0Value(amf::amf0::Value::String(str)) => str.as_str(),
                 _ => {
-                    eprintln!("Unexpected {:?}", packet);
+                    error!("Unexpected {:?}", packet);
                     return
                 }
             }
@@ -857,14 +852,14 @@ impl Connection {
             match &packet[4] {
                 amf::Value::Amf0Value(amf::amf0::Value::String(str)) => str.as_str(),
                 _ => {
-                    eprintln!("Unexpected {:?}", packet);
+                    error!("Unexpected {:?}", packet);
                     return
                 }
             }
         };
 
         self.media_stream = Some(MediaStream::new(name.to_owned()));
-        eprintln!("{:?}({:?}, {:?})", "publish", name, publish_type);
+        debug!("{:?}({:?}, {:?})", "publish", name, publish_type);
 
         self.ctx.push(5, rtmp::message::Message::Command { payload: amf::Array::<amf::Value>::from([
             amf::Value::Amf0Value(amf::amf0::Value::String("onStatus".to_string())),
@@ -883,19 +878,21 @@ impl Connection {
     #[allow(non_snake_case)]
     fn FCUnpublish(&mut self, packet: amf::Array<amf::Value>) {
         if let amf::Value::Amf0Value(amf::amf0::Value::String(stream_key)) = &packet[3] {
-            eprintln!("{:?}({:?})", "FCUnpublish", stream_key);
+            debug!("{:?}({:?})", "FCUnpublish", stream_key);
         }
     }
 
     #[allow(non_snake_case)]
     fn deleteStream(&mut self, packet: amf::Array<amf::Value>) {
         if let amf::Value::Amf0Value(amf::amf0::Value::Number(stream_id)) = &packet[3] {
-            eprintln!("{:?}({:?})", "deleteStream", stream_id);
+            debug!("{:?}({:?})", "deleteStream", stream_id);
         }
     }
 }
 
 fn main() -> std::io::Result<()> {
+    env_logger::init();
+
     let listener = TcpListener::bind("127.1.2.7:1935")?;
 
     let pool = thread_pool::ThreadPool::new(4);
