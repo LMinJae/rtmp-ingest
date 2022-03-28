@@ -95,6 +95,9 @@ struct Connection {
     prev_bytes_in: u32,
     bytes_out: u32,
 
+    app: String,
+    key: String,
+
     f_v: File,
     f_a: File,
 
@@ -121,6 +124,9 @@ impl Connection {
             prev_timestamp: None,
             prev_bytes_in: 0,
             bytes_out: 0,
+
+            app: "".to_owned(),
+            key: "".to_owned(),
 
             f_v: File::create("./dump.h264").unwrap(),
             f_a: File::create("./dump.aac").unwrap(),
@@ -728,6 +734,9 @@ impl Connection {
 
         let transaction_id = &packet[1];
         if let amf::Value::Amf0Value(amf::amf0::Value::Object(obj)) = &packet[2] {
+            self.app = if let amf::amf0::Value::String(str) = obj["app"].clone() {
+                str
+            } else { "".to_owned() };
             eprintln!("{:?}({:?})", "connect", obj["app"]);
 
             self.ctx.push(3, rtmp::message::Message::Command { payload: amf::Array::<amf::Value>::from([
@@ -835,6 +844,7 @@ impl Connection {
             }
         };
 
+        self.key = name.to_owned();
         eprintln!("{:?}({:?}, {:?})", "publish", name, publish_type);
 
         self.ctx.push(5, rtmp::message::Message::Command { payload: amf::Array::<amf::Value>::from([
