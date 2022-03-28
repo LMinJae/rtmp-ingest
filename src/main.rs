@@ -371,7 +371,39 @@ impl Connection {
                                                                 _ => unreachable!(),
                                                             } << 15,
                                                         }),
-                                                        ext: BytesMut::new(),
+                                                        ext: isobmff::Object {
+                                                            box_type: 0x65736473,
+                                                            payload: {
+                                                                let mut esds = isobmff::FullBox::new(0, 0).as_bytes();
+                                                                { // ES_Descriptor
+                                                                    esds.put_u8(0x03);
+                                                                    esds.put(&[0x80, 0x80, 0x80, 0x20 + payload.len() as u8][..]);
+                                                                    esds.put_u16(2);    // ES_ID
+                                                                    esds.put_u8(0x00);
+                                                                    { // DecoderConfigDescriptor
+                                                                        esds.put_u8(0x04);
+                                                                        esds.put(&[0x80, 0x80, 0x80, 0x12 + payload.len() as u8][..]);
+                                                                        esds.put_u8(0x40);  // Object Type Indicator: Audio ISO/IEC 14496-3
+                                                                        esds.put_u8(0x15);  // Stream Type: AudioStream
+                                                                        esds.put(&[0x00, 0x00, 0x00][..]);  // bufferSizeDB
+                                                                        esds.put_u32(4433); // maxBitrate
+                                                                        esds.put_u32(4433); // avgBitrate
+                                                                        { // DecoderSpecificInfo
+                                                                            esds.put_u8(0x05);
+                                                                            esds.put(&[0x80, 0x80, 0x80, payload.len() as u8][..]);
+                                                                            esds.put(payload.chunk());
+                                                                        }
+                                                                    }
+                                                                    { // SLConfigDescriptor
+                                                                        esds.put_u8(0x06);
+                                                                        esds.put(&[0x80, 0x80, 0x80, 0x01][..]);
+                                                                        esds.put_u8(0x02);
+                                                                    }
+                                                                }
+
+                                                                esds
+                                                            }
+                                                        }.as_bytes(),
                                                     }
                                                 );
                                             }
