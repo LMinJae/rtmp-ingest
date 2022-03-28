@@ -272,12 +272,12 @@ impl Connection {
                                         };
                                         eprintln!("{:?} {:?} {:?}", p0, p1, p2);
 
-                                        self.samplerate = if let amf::amf0::Value::Number(n) = p2["audiosamplerate"] {
-                                            n as u32
+                                        self.samplerate = if let Some(amf::amf0::Value::Number(n)) = p2.get("audiosamplerate") {
+                                            *n as u32
                                         } else { 0 };
 
-                                        self.framerate = if let amf::amf0::Value::Number(n) = p2["framerate"] {
-                                            n as u32
+                                        self.framerate = if let Some(amf::amf0::Value::Number(n)) = p2.get("framerate") {
+                                            *n as u32
                                         } else { 30 };
 
                                         self.moov.mvhd.timescale = 1000;
@@ -288,11 +288,11 @@ impl Connection {
                                             trak.tkhd.track_id = 1;
                                             trak.tkhd.alternate_group = 0;
                                             trak.tkhd.volume = 0;
-                                            trak.tkhd.width = if let amf::amf0::Value::Number(n) = p2["width"] {
-                                                (n as u32) << 16
+                                            trak.tkhd.width = if let Some(amf::amf0::Value::Number(n)) = p2.get("width") {
+                                                (*n as u32) << 16
                                             } else { 0 };
-                                            trak.tkhd.height = if let amf::amf0::Value::Number(n) = p2["height"] {
-                                                (n as u32) << 16
+                                            trak.tkhd.height = if let Some(amf::amf0::Value::Number(n)) = p2.get("height") {
+                                                (*n as u32) << 16
                                             } else { 0 };
 
                                             trak.mdia.mdhd.timescale = 1000;
