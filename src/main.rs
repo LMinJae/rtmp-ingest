@@ -792,7 +792,6 @@ impl Connection {
         }
 
         self.flush_segment();
-        write!(self.f_playlist, "#EXT-X-ENDLIST\n").unwrap();
     }
 }
 
