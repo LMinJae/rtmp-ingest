@@ -114,9 +114,9 @@ impl Drop for MediaStream {
 }
 
 impl MediaStream {
-    pub fn new() -> Self {
+    pub fn new(key: String) -> Self {
         Self {
-            key: "".to_owned(),
+            key: key.to_owned(),
 
             f_v: File::create("./dump.h264").unwrap(),
             f_a: File::create("./dump.aac").unwrap(),
@@ -595,7 +595,7 @@ struct Connection {
 
     app: String,
 
-    media_stream: MediaStream,
+    media_stream: Option<MediaStream>,
 }
 
 impl Connection {
@@ -610,7 +610,7 @@ impl Connection {
 
             app: "".to_owned(),
 
-            media_stream: MediaStream::new(),
+            media_stream: None,
         }
     }
 
@@ -736,7 +736,7 @@ impl Connection {
                                         }
                                     }
                                 }
-                                _ => self.media_stream.process(msg)
+                                _ => if let Some(ref mut media_stream) = self.media_stream { media_stream.process(msg) }
                             }
                         }
                     }
@@ -870,7 +870,7 @@ impl Connection {
             }
         };
 
-        self.media_stream.key = name.to_owned();
+        self.media_stream = Some(MediaStream::new(name.to_owned()));
         eprintln!("{:?}({:?}, {:?})", "publish", name, publish_type);
 
         self.ctx.push(5, rtmp::message::Message::Command { payload: amf::Array::<amf::Value>::from([
