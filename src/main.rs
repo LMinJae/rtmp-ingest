@@ -98,6 +98,8 @@ struct Connection {
     f_v: File,
     f_a: File,
 
+    audio_sampling_frequency_index: u8,
+
     f_playlist: File,
 
     moov: isobmff::moov::moov,
@@ -124,6 +126,7 @@ impl Connection {
             f_v: File::create("./dump.h264").unwrap(),
             f_a: File::create("./dump.aac").unwrap(),
 
+            audio_sampling_frequency_index: 0xf,
             f_playlist: File::create("./prog_index.m3u8").unwrap(),
 
             moov: isobmff::moov::moov::default(),
@@ -269,6 +272,27 @@ impl Connection {
                                             }
                                         };
                                         eprintln!("{:?} {:?} {:?}", p0, p1, p2);
+
+                                        self.audio_sampling_frequency_index = if let amf::amf0::Value::Number(n) = p2["audiosamplerate"] {
+                                            eprintln!("{}", n);
+                                            match n as u32 {
+                                                96000 => 0x0,
+                                                88200 => 0x1,
+                                                64000 => 0x2,
+                                                48000 => 0x3,
+                                                44100 => 0x4,
+                                                32000 => 0x5,
+                                                24000 => 0x6,
+                                                22050 => 0x7,
+                                                16000 => 0x8,
+                                                12000 => 0x9,
+                                                11025 => 0xa,
+                                                8000 => 0xb,
+                                                7350 => 0xc,
+                                                _ => 0xf
+                                            }
+                                        } else { 0xf };
+                                        eprintln!("{:x}", self.audio_sampling_frequency_index);
 
                                         self.framerate = if let amf::amf0::Value::Number(n) = p2["framerate"] {
                                             n as u32
@@ -416,7 +440,7 @@ impl Connection {
                                                     // profile
                                                     let mut v = 0b01;
                                                     // sampling_frequency_index
-                                                    v = (v << 4) | 0b0111;
+                                                    v = (v << 4) | self.audio_sampling_frequency_index as u32;
                                                     // channel_configuration
                                                     v = (v << 4) | (channel << 1) as u32;
                                                     // aac_frame_length
