@@ -243,8 +243,8 @@ impl MediaStream {
             rtmp::message::Message::Audio { dts: _dts, control, mut payload } => {
                 let codec = control >> 4;
                 let _rate = (control >> 2) & 3;
-                let size = (control >> 1) & 1;
-                let channel = control & 1;
+                let _size = (control >> 1) & 1;
+                let _channel = control & 1;
 
                 match codec {
                     10 => {
@@ -263,16 +263,8 @@ impl MediaStream {
                                                 data_reference_index: 1,
                                             }),
 
-                                            channel_count: match channel {
-                                                0 => 1,
-                                                1 => 2,
-                                                _ => unreachable!(),
-                                            },
-                                            sample_size: match size {
-                                                0 => 8,
-                                                1 => 16,
-                                                _ => unreachable!(),
-                                            },
+                                            channel_count: 2,
+                                            sample_size: 16,
                                             sample_rate: self.samplerate << 15,
                                         }),
                                         ext: isobmff::Object {
@@ -338,7 +330,7 @@ impl MediaStream {
                                     // sampling_frequency_index
                                     v = (v << 4) | sampling_frequency_index as u32;
                                     // channel_configuration
-                                    v = (v << 4) | (channel << 1) as u32;
+                                    v = (v << 4) | 2;
                                     // aac_frame_length
                                     v = (v << 17) | payload.len() as u32;
                                     v = (v << 5) + 0xff;
